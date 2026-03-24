@@ -1,3 +1,11 @@
+'''
+Fetches data from the csv stored in Git.
+Creates a dataframe of businesses.
+Cleans data (removes irrelevant license types, remove repeat businesses)
+Adds zip code column in dataframe
+Adds calculated age of the business in dataframe
+'''
+
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -173,9 +181,10 @@ def main():
     filepath = 'Boston_food_drink_licenses.csv'
     df = create_businesses(filepath)
 
-    #print(df.head(10))
+    print(df.head(10))
 
-    #df = keep_relevant_businesses(df)
+    df = keep_relevant_businesses(df)
+    return df
 
     print(count_businesses_by_zip(df))
     #print(df['neighborhood_revised'].value_counts(dropna=False))
