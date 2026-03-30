@@ -22,7 +22,7 @@ ZIPS_BY_NEIGHBORHOOD = {
         'West Roxbury' : [2132]
     }
 
-data = pd.read_csv('Boston_food_drink_licenses.csv')
+data = pd.read_csv('/Users/abigailrillovick/Desktop/26s-ds2500-rillovick/Modeling-Business-Success-in-Boston/Boston_food_drink_licenses.csv')
 
 # map data to neighborhood
 zip_to_neighborhood = {z: n for n, zips in ZIPS_BY_NEIGHBORHOOD.items() for z in zips}
@@ -66,3 +66,21 @@ plt.show()
 
 print("\nAlcohol license % by neighborhood: ")
 print(alcohol_by_neighborhood['pct_alcohol'].sort_values(ascending=False).round(1))
+
+# Business age by neighborhood: box plot
+data = data.dropna(subset=['neighborhood'])
+data['issued'] = pd.to_datetime(data['issued'], errors='coerce')
+data['age_years'] = (pd.Timestamp.today() - data['issued']).dt.days / 365
+age_by_neighborhood = [data[data['neighborhood'] == n]['age_years'].dropna()
+                       for n in sorted(data['neighborhood'].unique())]
+labels = sorted(data['neighborhood'].unique())
+
+plt.figure(figsize=(14,6))
+plt.boxplot(age_by_neighborhood, tick_labels=labels)
+plt.xticks(rotation=45, ha='right')
+plt.title('Distribution of Business Age by Neighborhood')
+plt.xlabel('Neighborhood')
+plt.ylabel('Business Age (Years)')
+plt.tight_layout()
+plt.savefig('boxplot_age_by_neighborhood.png')
+plt.show()
