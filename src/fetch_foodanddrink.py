@@ -32,16 +32,12 @@ def create_businesses(filepath):
     '''
     Attributes:
         Filepath to repository food/drink license csv
-            ['license_num', 'historicallicensenum', 'status', 'license_category',
-       'license_type', 'issued', 'expires', 'business_name', 'dba_name',
-       'comments', 'location_comments', 'opening', 'closing', 'patronsout',
-       'capacity', 'descpremadd', 'applicant', 'manager', 'day_phone',
-       'evening_phone', 'address', 'city', 'state', 'zip', 'gpsx', 'gpsy']
+    Returns:
+        Dataframe of businesses with specified columns
     '''
-    
     data = pd.read_csv(filepath)
+    print(data.columns.tolist())
     business_table = data[['business_name', 'zip', 'license_type','issued']]
-
     return business_table
 
 def revise_business_name(business_data):
@@ -183,18 +179,16 @@ def main():
 
     print(df.head(10))
 
+    df = compute_business_age(df)
     df = keep_relevant_businesses(df)
-    return df
-
+    
     print(count_businesses_by_zip(df))
     #print(df['neighborhood_revised'].value_counts(dropna=False))
-    compute_business_age(df)
     print(find_avg_biz_age_by_key(df, 'neighborhood'))
     plot_mean_biz_age_by_filtering(df)
+    return df
 
 
 if __name__ == '__main__':
     main()
 
-#df = pd.DataFrame('Boston_food_drink_licenses.csv')
-#df.shape
