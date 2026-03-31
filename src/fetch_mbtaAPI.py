@@ -1,6 +1,6 @@
 import requests
 import pandas as pd
-# Create API variables
+# Scrape MBTA API data and make a dataframe
 def create_API_variables():
     '''
     Makes the api key string.
@@ -15,7 +15,6 @@ def create_API_variables():
 def call_API_load(API):
     '''
     Create a DF from API string
-    Get 
     '''
     response = requests.get(API).json()
     stops_data = [stop['attributes'] for stop in response['data']]
@@ -23,12 +22,14 @@ def call_API_load(API):
     print(df.columns.tolist())
 
     gps_coords = df[['name', 'latitude', 'longitude']]
-    print(gps_coords)
-    print(df['name'].nunique())
+    #print(df['name'].nunique())
+    return gps_coords
 
 def main():
     API = create_API_variables()
-    call_API_load(API)
+    return call_API_load(API)
 
 if __name__ == '__main__':
-    main()
+    gps_coords = main()
+    print(gps_coords)
+    
