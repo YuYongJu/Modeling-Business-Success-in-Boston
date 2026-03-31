@@ -36,9 +36,10 @@ def create_businesses(filepath):
         Dataframe of businesses with specified columns
     '''
     data = pd.read_csv(filepath)
-    print(data.columns.tolist())
-    business_table = data[['business_name', 'zip', 'license_type','issued']]
-    return business_table
+    business_table = data    
+    df = pd.DataFrame(business_table)
+    print(df.columns.tolist())
+    return df
 
 def revise_business_name(business_data):
     '''
