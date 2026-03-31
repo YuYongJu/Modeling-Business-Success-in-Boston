@@ -173,22 +173,17 @@ def plot_mean_biz_age_by_filtering(business_data):
     print("Plot saved as avg_business_age_by_neighborhood.png")
 
 
-def main():
-    filepath = 'Boston_food_drink_licenses.csv'
+def main(filepath='data/food_drink_licenses.csv'):
     df = create_businesses(filepath)
-
-    print(df.head(10))
-
     df = compute_business_age(df)
     df = keep_relevant_businesses(df)
-    
-    print(count_businesses_by_zip(df))
-    #print(df['neighborhood_revised'].value_counts(dropna=False))
-    print(find_avg_biz_age_by_key(df, 'neighborhood'))
-    plot_mean_biz_age_by_filtering(df)
+    count_businesses_by_zip(df)
     return df
 
-
 if __name__ == '__main__':
-    main()
+    df = main()
+    print(df.head(10))
+    print("Number of businesses by neighborhood: \n", df['neighborhood_revised'].value_counts(dropna=False).tolist())
+    print("Average business age by neighborhood: \n", find_avg_biz_age_by_key(df, 'neighborhood').tolist())
+    plot_mean_biz_age_by_filtering(df)
 
