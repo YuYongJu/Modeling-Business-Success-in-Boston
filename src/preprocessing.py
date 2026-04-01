@@ -1,7 +1,12 @@
 # Take the data from the API and csv and add distance from train stop
 import fetch_mbtaAPI
 import fetch_foodanddrink
+from math import sqrt
+
 # For each business, compare their gps location to gps location of train stops
+
+MAPTILER_API_KEY = 'aufX5kxfegadK9an5cZU'
+BATCH_SIZE = 50
 
 def calculate_distance(gps1, gps2):
     '''
@@ -12,8 +17,6 @@ def calculate_distance(gps1, gps2):
     Returns:
         Distance in kilometers between the two locations
     '''
-    from math import radians, cos, sin, asin, sqrt
-
     lat1, lon1 = gps1
     lat2, lon2 = gps2
 
@@ -23,6 +26,42 @@ def calculate_distance(gps1, gps2):
     distance = sqrt(lat_diff**2 + lon_diff**2) * 111111  # Approximate conversion to kilometers
 
     return distance
+
+def transform_batch(coords):
+    """
+    coords: list of (gpsx, gpsy) tuples
+    Returns list of (lat, lon) tuples
+    """
+    coord_str = ";".join(f"{x},{y}" for x, y in coords)
+    url = f"https://api.maptiler.com/coordinates/transform/{coord_str}.json"
+    params = {
+        "s_srs": 2249,
+        "t_srs": 4326,
+        "key": MAPTILER_API_KEY,
+    }
+
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+
+    results = response.json()["results"]
+    return [(r["y"], r["x"]) for r in results]  # (lat, lon)
+
+def transform_all(df, x_col="gpsx", y_col="gpsy"):
+    """
+    Transform all rows in a DataFrame from EPSG:2249 to lat/lon.
+    Adds 'latitude' and 'longitude' columns.
+    """
+    coords = list(zip(df[x_col], df[y_col]))
+    transformed_coords = []
+    
+    for i in range(0, len(coords), BATCH_SIZE):
+        batch = coords[i:i + BATCH_SIZE]
+        transformed_batch = transform_batch(batch)
+        transformed
+
+
+
+
 
 def add_distance_to_stops(businesses_df, stops_df):
     '''
