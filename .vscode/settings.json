@@ -1,0 +1,8 @@
+{
+    "python.REPL.enableREPLSmartSend": false,
+    "python.analysis.typeCheckingMode": "off",
+    "mypy-type-checker.importStrategy": "off",
+  "python.linting.mypyEnabled": false,
+  "python-envs.defaultEnvManager": "ms-python.python:venv"
+}
+
