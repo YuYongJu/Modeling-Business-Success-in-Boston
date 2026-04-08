@@ -84,8 +84,15 @@ def encode_neighborhoods(businesses_df):
     Encode neighborhoods from given zipcodes
     This is important to include because in the raw data a ton are just labelled as "Boston"
     '''
-    zip_to_neighborhood = {z: n for n, zips in ZIPS_BY_NEIGHBORHOOD.items() for z in zips}
+    missing_zips = businesses_df[businesses_df['zip'].isna()]
+    print(f"{len(missing_zips)} businesses with missing zip codes.")
+
+    zip_to_neighborhood = {}
+    for neighborhood, zips in ZIPS_BY_NEIGHBORHOOD.items():
+        for zip_code in zips:
+            zip_to_neighborhood[zip_code] = neighborhood
     businesses_df['neighborhood_revised'] = businesses_df['zip'].map(zip_to_neighborhood)
+
     return businesses_df
 
 def count_businesses_by_zip(business_table):
@@ -175,10 +182,13 @@ def main():
     df = create_businesses()
     df = compute_business_age(df)
     df = remove_businesses(df)
+    print(df.head(10))
+    df = encode_neighborhoods(df)
+    print(df.head(10))
     #count_businesses_by_zip(df)
 
 if __name__ == '__main__':
-    df = main()
+    main()
     '''
     print(df.head(10))
     print("Number of businesses by neighborhood: \n", df['neighborhood_revised'].value_counts(dropna=False).tolist())
