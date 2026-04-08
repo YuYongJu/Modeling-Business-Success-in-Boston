@@ -5,4 +5,3 @@ __pycache__/
 *.pyc
 
 data/
-MAPTILER_API_KEY = 'aufX5kxfegadK9an5cZU'
