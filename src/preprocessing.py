@@ -7,7 +7,6 @@ from math import sqrt
 
 # For each business, compare their gps location to gps location of train stops
 
-MAPTILER_API_KEY = 'aufX5kxfegadK9an5cZU'
 BATCH_SIZE = 50
 
 def drop_missing_coords(df, x_col="gpsx", y_col="gpsy"):
@@ -100,13 +99,15 @@ def add_distance_to_stops(businesses_df, stops_df):
 
     return businesses_df
 
-outliers = transformed_businesses_df[
-    (transformed_businesses_df["latitude"] < 41) |
-    (transformed_businesses_df["latitude"] > 43) |
-    (transformed_businesses_df["longitude"] < -72) |
-    (transformed_businesses_df["longitude"] > -70)
-]
-print(outliers[["latitude", "longitude", "gpsx", "gpsy"]])
+def find_remove_outliers(df):
+    before = len(df)
+    df = df[
+        (df["latitude"] >= 41) & (df["latitude"] <= 43) &
+        (df["longitude"] >= -72) & (df["longitude"] <= -70)
+    ]
+    after = len(df)
+    print(f"Removed {before - after} outliers based on latitude and longitude ({after} remaining)")
+    return df
 
 def plot_coords(businesses_df, stops_df):
     """
@@ -137,10 +138,10 @@ def main():
     businesses_df = fetch_foodanddrink.main()
     print("Food and drink data loaded.")
     businesses_df = drop_missing_coords(businesses_df)
-    transformed_businesses_df = transform_all(businesses_df)
-    print(transformed_businesses_df.head(10))
+    businesses_df = transform_all(businesses_df)
     businesses_df = add_distance_to_stops(businesses_df, stops_df)
-    plot_coords(transformed_businesses_df, stops_df)
+    businesses_df = find_remove_outliers(businesses_df)
+    plot_coords(businesses_df, stops_df)
 
 if __name__ == '__main__':
     main()
