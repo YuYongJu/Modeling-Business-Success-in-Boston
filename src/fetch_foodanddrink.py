@@ -10,6 +10,14 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+FILEPATH = 'data/food_drink_licenses.csv'
+
+EXCLUDED_TYPES = [
+        'Dormitory',
+        'Lodging Houses (Frat/Dorm)',
+        'SPCMWA'
+    ]
+
 ZIPS_BY_NEIGHBORHOOD = {
         'Allston/Brighton' : [2134, 2135, 2163],
         'Back Bay/Beacon Hill ' : [2108, 2116, 2117, 2123, 2133, 2199, 2216, 2217, 2295],
@@ -28,7 +36,7 @@ ZIPS_BY_NEIGHBORHOOD = {
         'West Roxbury' : [2132]
     }
 
-def create_businesses(filepath):
+def create_businesses(filepath=FILEPATH):
     '''
     Attributes:
         Filepath to repository food/drink license csv
@@ -38,7 +46,8 @@ def create_businesses(filepath):
     data = pd.read_csv(filepath)
     business_table = data    
     df = pd.DataFrame(business_table)
-    print(df.columns.tolist())
+    df.columns.tolist()
+    print("Number of businesses in dataset: ", len(df))
     return df
 
 def revise_business_name(business_data):
@@ -57,28 +66,18 @@ def remove_repeat_locations(business_data):
     '''
     pass
 
-def keep_relevant_businesses(business_data):
+def remove_businesses(business_data, excluded_types=EXCLUDED_TYPES):
     '''
-    Keeps businesses of 
-    Gets rid of 
-        'license_type': ['Dormitory', 'Club', 'Airport', 'Innholder No Liquor', 
-                        'Lodging Houses (Frat/Dorm)', 'SPCMWA']
-        'address': includes 'Logan Airport'
+    Removes businesses with irrelevant license types, such as dormitories.
+    Gets rid of unwanted business types.
     '''
-    excluded_types = [
-        'Dormitory',
-        'Club',
-        'Airport',
-        'Innholder No Liquor',
-        'Lodging Houses (Frat/Dorm)',
-        'SPCMWA'
-    ]
-
+    before = len(business_data)
     mask = business_data['license_type'].isin(excluded_types)
     filtered_data = business_data[mask == False]
+    after = len(filtered_data)
 
+    print(f"Removed {before - after} businesses based on {EXCLUDED_TYPES} license type ({after} remaining)")
     return filtered_data
-    
 
 def encode_neighborhoods(businesses_df):
     '''
@@ -88,7 +87,6 @@ def encode_neighborhoods(businesses_df):
     zip_to_neighborhood = {z: n for n, zips in ZIPS_BY_NEIGHBORHOOD.items() for z in zips}
     businesses_df['neighborhood_revised'] = businesses_df['zip'].map(zip_to_neighborhood)
     return businesses_df
-        
 
 def count_businesses_by_zip(business_table):
     '''
@@ -173,18 +171,18 @@ def plot_mean_biz_age_by_filtering(business_data):
     plt.savefig("avg_business_age_by_neighborhood.png")
     print("Plot saved as avg_business_age_by_neighborhood.png")
 
-
-def main(filepath='data/food_drink_licenses.csv'):
-    df = create_businesses(filepath)
+def main():
+    df = create_businesses()
     df = compute_business_age(df)
-    df = keep_relevant_businesses(df)
-    count_businesses_by_zip(df)
-    return df
+    df = remove_businesses(df)
+    #count_businesses_by_zip(df)
 
 if __name__ == '__main__':
     df = main()
+    '''
     print(df.head(10))
     print("Number of businesses by neighborhood: \n", df['neighborhood_revised'].value_counts(dropna=False).tolist())
     print("Average business age by neighborhood: \n", find_avg_biz_age_by_key(df, 'neighborhood').tolist())
     plot_mean_biz_age_by_filtering(df)
+    '''
 
