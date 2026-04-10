@@ -1,9 +1,12 @@
 # Take the data from the API and csv and add distance from train stop
 import fetch_mbtaAPI
 import fetch_foodanddrink
+import preprocessing_DBA_latandlong
+
 import requests
 import matplotlib.pyplot as plt
 from math import sqrt
+import time # for a pause between API calls to avoid rate limits
 
 # For each business, compare their gps location to gps location of train stops
 
@@ -14,12 +17,11 @@ def drop_missing_coords(df, x_col="gpsx", y_col="gpsy"):
     Remove rows with missing GPS coordinates.
     """
     before = len(df)
-    df = df.dropna(subset=[x_col, y_col])
+    df = df.dropna(subset=[x_col, y_col], inplace=True)
     after = len(df)
     print(f"Removed {before - after} rows with missing coordinates ({after} remaining)")
-    return df
 
-def transform_batch(coords):
+def transform_EPSG_GPS(coords):
     """
     Attributes:
         coords: list of (gpsx, gpsy) tuples in EPSG:2249
@@ -41,7 +43,7 @@ def transform_batch(coords):
     results = response.json()["results"]
     return [(r["y"], r["x"]) for r in results]  # (lat, lon)
 
-def transform_all(df, x_col="gpsx", y_col="gpsy"):
+def transform_all_EPSG_GPS(df, x_col="gpsx", y_col="gpsy"):
     """
     Transform gpsx and gpsy columns in the DataFrame from EPSG:2249 to lat/lon in batches of 50 limit.
     Adds 'latitude' and 'longitude' columns.
@@ -56,7 +58,61 @@ def transform_all(df, x_col="gpsx", y_col="gpsy"):
         transformed_coords.extend(transformed_batch)
         
     print("transformed coords:", len(transformed_coords))
-    return df.assign(latitude=[lat for lat, lon in transformed_coords], longitude=[lon for lat, lon in transformed_coords])
+    df.assign(latitude=[lat for lat, lon in transformed_coords], longitude=[lon for lat, lon in transformed_coords], inplace=True)
+
+def geocode_addresses(addresses):
+    """
+    Attributes:
+        addresses: list of address strings
+    Returns:
+        list of (lat, lon) tuples
+    """
+    results = []
+    for address in addresses:
+        url = f"https://api.maptiler.com/geocoding/{requests.utils.quote(address)}.json"
+        params = {
+            "key": MAPTILER_API_KEY,
+            "limit": 1,
+        }
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        features = response.json().get("features", [])
+        if features:
+            lon, lat = features[0]["geometry"]["coordinates"]
+            results.append((lat, lon))
+        else:
+            results.append((None, None))
+    return results
+
+
+def geocode_all_addresses(df, address_col="Business Address"):
+    """
+    Geocode all addresses in a DataFrame column in batches of BATCH_SIZE.
+    Adds 'latitude' and 'longitude' columns.
+    """
+    addresses = df[address_col].tolist()
+    geocoded = []
+
+    for i in range(0, len(addresses), BATCH_SIZE):
+        batch = addresses[i:i+BATCH_SIZE]
+        geocoded_batch = geocode_batch(batch)
+        geocoded.extend(geocoded_batch)
+        time.sleep(1)
+
+    print("geocoded addresses:", len(geocoded))
+    df["latitude"] = [lat for lat, lon in geocoded]
+    df["longitude"] = [lon for lat, lon in geocoded]
+    return df
+
+def compile_datasets(businesses_df, DBA_files):
+    '''
+    Combine the two business dataframes, adding any missing columns to each and filling with NaN.
+    '''
+    # Get all unique columns from both dataframes
+    licence_cols = set(businesses_df.columns)
+    DBA_cols = set(DBA_files.columns)
+    print("Licence columns:", licence_cols)
+    print("DBA columns:", DBA_cols)
 
 def calculate_distance(gps1, gps2):
     '''
@@ -70,10 +126,7 @@ def calculate_distance(gps1, gps2):
     lat1, lon1 = gps1
     lat2, lon2 = gps2
 
-    lat_diff = lat1 - lat2
-    lon_diff = lon1 - lon2
-
-    distance = sqrt(lat_diff**2 + lon_diff**2) * 111111  # Approximate conversion to kilometers
+    distance = ((lat1 - lat2) + (lon1 - lon2)) * 111111  # Approximate conversion to kilometers
 
     return distance
 
@@ -134,12 +187,20 @@ def plot_coords(businesses_df, stops_df):
     plt.show()
 
 def main():
+    #fetch all data
     stops_df = fetch_mbtaAPI.main()
     businesses_df = fetch_foodanddrink.main()
-    print("Food and drink data loaded.")
-    businesses_df = drop_missing_coords(businesses_df)
-    businesses_df = transform_all(businesses_df)
+
+    #transform from EPSG/geocode from address all gps goordinates
+    transform_all(businesses_df)
+    drop_missing_coords(businesses_df)
+    DBA_files = preprocessing_DBA_latandlong.main()
+
+    #concactenate the two business dataframes
+
+    #process both files to add distance to stops and plot
     businesses_df = add_distance_to_stops(businesses_df, stops_df)
+    DBA_files = add_distance_to_stops(DBA_files, stops_df)
     businesses_df = find_remove_outliers(businesses_df)
     plot_coords(businesses_df, stops_df)
 
