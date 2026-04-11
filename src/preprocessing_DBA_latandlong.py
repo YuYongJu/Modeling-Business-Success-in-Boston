@@ -4,13 +4,6 @@ import pandas as pd
 folder = "data/"
 filename = "CityofBoston-CityClerkDBA.csv"
 
-def clear_private_info(df):
-    '''
-    Clear private information from the DataFrame.
-    '''
-    df.drop(columns = ["File Number", "Owner Name", "Owner Address", "Owner Email"], inplace=True)
-
-
 def get_lat_lon(address, city, state, zipcode):
     '''
     Get latitude and longitude for a given address.
@@ -55,15 +48,24 @@ def drop_missing_coordinates(df):
     print(f"{after}/{before} rows kept. {before - after} rows removed due to missing coordinates.")
 
 def main():
-    #df = pd.read_csv(folder + filename, dtype={"Zipcode": str})
-    df = pd.read_csv(folder + filename, encoding="latin-1")
+    df = pd.read_csv(folder + filename, encoding="latin-1", dtype={"Zipcode": str})
     df["Zipcode"] = df["Zipcode"].str.encode("ascii", errors="ignore").str.decode("ascii").str.strip()
-    clear_private_info(df)
+    print(df.columns)
+
+    # Clear private information
+    try:
+        for col in ["File Number", "Owner Name", "Owner Address", "Owner Email"]:
+            df.drop(columns = col, inplace=True)
+    
+    except KeyError:
+        print("Some columns to drop were not found.")
+
     #df = drop_missing_coordinates(df)
     df.to_csv(folder + "CityofBoston-CityClerkDBA_cleaned.csv", index=False)
 
     #print(df[["Business Address", "City", "Zipcode", "Latitude", "Longitude"]].head())
     print(df.head())
+    
 
     '''
     get_lat_lon(df["Business Address"], df["City"], df["State"], df["Zipcode"])
