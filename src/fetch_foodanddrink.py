@@ -116,6 +116,7 @@ def transform_all_EPSG_GPS(df, x_col="gpsx", y_col="gpsy"):
     lats, lons = zip(*transformed_coords)
     df["latitude"] = lats
     df["longitude"] = lons
+    df.drop(columns=['gpsx','gpsy'])
     return df
 
 def encode_neighborhoods(businesses_df):
@@ -215,6 +216,11 @@ def plot_mean_biz_age_by_filtering(business_data):
     print("Plot saved as avg_business_age_by_neighborhood.png")
 
 def main():
+    
+    response = requests.get(url, params=params)
+    print(response.status_code, response.text)
+    response.raise_for_status()
+
     df = create_businesses()
     df.drop(columns=['license_num', 'historicallicensenum', 'applicant', 'manager', 
                         'day_phone', 'evening_phone', 'descpremadd'], inplace=True)
@@ -222,11 +228,17 @@ def main():
     df = drop_missing_gps_coords(df)
     df = transform_all_EPSG_GPS(df)
     df = encode_neighborhoods(df)
+    #df = compute_business_age(df)
     #count_businesses_by_zip(df)
+    print("reached end of main")
+    print(df.columns)
     return df
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as e:
+        print(f"Error: {e}")
     '''
     print(df.head(10))
     print("Number of businesses by neighborhood: \n", df['neighborhood_revised'].value_counts(dropna=False).tolist())
