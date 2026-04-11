@@ -1,14 +1,7 @@
-'''
-Fetches data from the csv stored in Git.
-Creates a dataframe of businesses.
-Cleans data (removes irrelevant license types, remove repeat businesses)
-Adds zip code column in dataframe
-Adds calculated age of the business in dataframe
-'''
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import requests
 
 FILEPATH = 'data/food_drink_licenses.csv'
 
@@ -17,6 +10,9 @@ EXCLUDED_TYPES = [
         'Lodging Houses (Frat/Dorm)',
         'SPCMWA'
     ]
+
+MAPTILER_API_KEY = 'aufX5kxfegadK9an5cZU'
+BATCH_SIZE = 50
 
 ZIPS_BY_NEIGHBORHOOD = {
         'Allston/Brighton' : [2134, 2135, 2163],
@@ -47,7 +43,6 @@ def create_businesses(filepath=FILEPATH):
     business_table = data    
     df = pd.DataFrame(business_table)
     df.columns.tolist()
-    print("Number of businesses in dataset: ", len(df))
     return df
 
 def revise_business_name(business_data):
@@ -76,16 +71,59 @@ def remove_businesses(business_data, excluded_types=EXCLUDED_TYPES):
     filtered_data = business_data[mask == False]
     after = len(filtered_data)
 
-    print(f"Removed {before - after} businesses based on {EXCLUDED_TYPES} license type ({after} remaining)")
     return filtered_data
+
+def transform_batch_EPSG_GPS(coords):
+    """
+    Attributes:
+        coords: list of (gpsx, gpsy) tuples in EPSG:2249
+            (Massachusetts State Plane NAD83, US Survey Feet)
+    Returns:
+        list of (lat, lon) tuples in EPSG:4326
+    """
+    coord_str = ";".join(f"{x},{y}" for x, y in coords)
+    url = f"https://api.maptiler.com/coordinates/transform/{coord_str}.json"
+    params = {
+        "s_srs": 2249,  # MA State Plane NAD83, US Survey Feet
+        "t_srs": 4326,  # WGS84 — standard GPS lat/lon
+        "key": MAPTILER_API_KEY,
+    }
+
+    response = requests.get(url, params=params)
+    response.raise_for_status()
+
+    results = response.json()["results"]
+    return [(r["y"], r["x"]) for r in results]  # (lat, lon)
+
+def transform_all_EPSG_GPS(df, x_col="gpsx", y_col="gpsy"):
+    """
+    Transform gpsx and gpsy columns in the DataFrame from EPSG:2249 to lat/lon in batches of 50 limit.
+    Attributes: 
+        df: DataFrame with gpsx and gpsy columns
+        x_col: name of the column containing x coordinates
+        y_col: name of the column containing y coordinates
+    Returns:
+        DataFrame with new 'latitude' and 'longitude' columns and original gpsx/gpsy columns removed.
+    """
+    coords = list(zip(df[x_col], df[y_col]))
+    transformed_coords = []
+    
+    for i in range(0, len(coords), BATCH_SIZE):
+        batch = coords[i:i+BATCH_SIZE]
+        transformed_batch = transform_batch_EPSG_GPS(batch)
+        transformed_coords.extend(transformed_batch)
+            
+    lats, lons = zip(*transformed_coords)
+    df["latitude"] = lats
+    df["longitude"] = lons
+    return df
 
 def encode_neighborhoods(businesses_df):
     '''
     Encode neighborhoods from given zipcodes
-    This is important to include because in the raw data a ton are just labelled as "Boston"
+    This is important to include because in the raw data many businesses are labelled with "Boston" as neighborhhood
     '''
     missing_zips = businesses_df[businesses_df['zip'].isna()]
-    print(f"{len(missing_zips)} businesses with missing zip codes.")
 
     zip_to_neighborhood = {}
     for neighborhood, zips in ZIPS_BY_NEIGHBORHOOD.items():
@@ -104,9 +142,6 @@ def count_businesses_by_zip(business_table):
         Number of businesses in each zip code
     '''
     counts = business_table['zip'].value_counts().sort_index()
-    
-    #for zipcode, count in counts.items():
-    #    print(f"{zipcode}: {count}")
 
     zip_counts = business_table['zip'].value_counts()
     neighborhood_counts = {}
@@ -142,15 +177,16 @@ def compute_business_age(business_data):
     business_data['age_years'] = (today - business_data['issued']).dt.days / 365
     return business_data
 
-def find_avg_biz_age_by_key(business_data, key):
-    '''
-    Given a dataframe of businesses, find the year they were first issued - today, average by key
-    '''
-
-    if key == 'neighborhood': 
-        avg_age = business_data.groupby('neighborhood_revised')['age_years'].mean().round(2) 
-    return avg_age
-
+def drop_missing_gps_coords(df, x_col="gpsx", y_col="gpsy"):
+    """
+    Specifically for the Licenses dataset.
+    Removes rows where numerical coordinates are NaN.
+    """
+    before = len(df)
+    df.dropna(subset=[x_col, y_col], inplace=True)
+    df = df[(df[x_col] != 0) & (df[y_col] != 0)]
+    after = len(df)
+    return df
 
 def plot_mean_biz_age_by_filtering(business_data):
     '''
@@ -180,12 +216,14 @@ def plot_mean_biz_age_by_filtering(business_data):
 
 def main():
     df = create_businesses()
-    df = compute_business_age(df)
+    df.drop(columns=['license_num', 'historicallicensenum', 'applicant', 'manager', 
+                        'day_phone', 'evening_phone', 'descpremadd'], inplace=True)
     df = remove_businesses(df)
-    print(df.head(10))
+    df = drop_missing_gps_coords(df)
+    df = transform_all_EPSG_GPS(df)
     df = encode_neighborhoods(df)
-    print(df.head(10))
     #count_businesses_by_zip(df)
+    return df
 
 if __name__ == '__main__':
     main()
