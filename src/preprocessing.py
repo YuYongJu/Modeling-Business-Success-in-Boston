@@ -84,7 +84,6 @@ def geocode_addresses(addresses):
             results.append((None, None))
     return results
 
-
 def geocode_all_addresses(df, address_col="Business Address"):
     """
     Geocode all addresses in a DataFrame column in batches of BATCH_SIZE.
@@ -102,7 +101,6 @@ def geocode_all_addresses(df, address_col="Business Address"):
     print("geocoded addresses:", len(geocoded))
     df["latitude"] = [lat for lat, lon in geocoded]
     df["longitude"] = [lon for lat, lon in geocoded]
-    return df
 
 def compile_datasets(businesses_df, DBA_files):
     '''
@@ -189,20 +187,24 @@ def plot_coords(businesses_df, stops_df):
 def main():
     #fetch all data
     stops_df = fetch_mbtaAPI.main()
-    businesses_df = fetch_foodanddrink.main()
+    licenses_df = fetch_foodanddrink.main()
+    DBA_files = preprocessing_DBA_latandlong.main()
 
     #transform from EPSG/geocode from address all gps goordinates
-    transform_all(businesses_df)
-    drop_missing_coords(businesses_df)
-    DBA_files = preprocessing_DBA_latandlong.main()
+    transform_EPSG_GPS(licenses_df)
+    drop_missing_coords(licenses_df)
+    geocode_all_addresses(DBA_files)
+
+    print(licenses_df.head())
+    print(DBA_files.head())
 
     #concactenate the two business dataframes
 
     #process both files to add distance to stops and plot
-    businesses_df = add_distance_to_stops(businesses_df, stops_df)
+    licenses_df = add_distance_to_stops(licenses_df, stops_df)
     DBA_files = add_distance_to_stops(DBA_files, stops_df)
-    businesses_df = find_remove_outliers(businesses_df)
-    plot_coords(businesses_df, stops_df)
+    licenses_df = find_remove_outliers(licenses_df)
+    plot_coords(licenses_df, stops_df)
 
 if __name__ == '__main__':
     main()
