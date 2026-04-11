@@ -132,6 +132,9 @@ def maptiler_geocode(address, zipcode):
         
     return None, None
 
+def calc_age(df):
+    print(df.columns)
+
 def main():
     df = pd.read_csv(folder + filename, encoding="latin-1", dtype={"Zipcode": str})
     df["Zipcode"] = df["Zipcode"].str.encode("ascii", errors="ignore").str.decode("ascii").str.strip()
@@ -139,6 +142,9 @@ def main():
     clear_private_info(df, [["File Number", "Owner Name", "Owner Address", "Owner Email", 'Ã¯Â»Â¿File Number']])
     df = drop_missing_addresses(df)
     df = geocode_addresses(df)
+
+    # also process all businesses with "WITHDRAWL" double entries!! dates line up for renewal.
+    # calc age
 
     df.to_csv(folder + "CityofBoston-CityClerkDBA_cleaned.csv", index=False)
 

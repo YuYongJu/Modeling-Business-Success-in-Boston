@@ -24,7 +24,9 @@ def call_API_load(API):
 
 def main():
     API = create_API_variables()
-    return call_API_load(API)
+    df = call_API_load(API)
+    df.to_csv('data/MBTA_stops.csv')
+    return df
 
 if __name__ == '__main__':
     gps_coords = main()
