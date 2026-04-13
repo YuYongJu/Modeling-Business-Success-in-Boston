@@ -227,7 +227,8 @@ def main():
     '''
 
     # FETCH DATA
-    #stops_df = fetch_mbtaAPI.main()
+    stops_df = fetch_mbtaAPI.main()
+    '''
     stops_df = pd.read_csv('data/MBTA_stops.csv')
     licenses_df = fetch_foodanddrink.main()
     DBA_df = pd.read_csv('data/CityofBoston-CityClerkDBA_cleaned.csv')
@@ -237,6 +238,10 @@ def main():
     # COMPILE DATA
     df = compile_datasets(licenses_df, DBA_df)
     print(len(df))
+    '''
+
+    df = pd.read_csv('data/compiled_data.csv')
+    print(df.columns)
 
     # CALCULATE VARIABLES
     df = calc_age(df)
@@ -244,7 +249,8 @@ def main():
     print(df.columns)
 
     # SAVE AS NEW CSV
-    #df.to_csv("data/compiled_data.csv", index=False)
+    df.to_csv("data/compiled_data1.csv", index=False)
+
 
     # PLOTS
     df = df[
@@ -252,7 +258,7 @@ def main():
         (df["longitude"] >= -71.2) & (df["longitude"] <= -70.9)
     ]
     
-    plot_coords(DBA_df, stops_df)
+    plot_coords(df, stops_df)
 
 if __name__ == '__main__':
     main()
