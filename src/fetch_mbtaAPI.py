@@ -23,9 +23,11 @@ def call_API_load(API):
     return gps_coords
 
 def main():
+    if Path('data/MBTA_stops.csv').exists():
+        return pd.read_csv('data/MBTA_stops.csv')
     API = create_API_variables()
     df = call_API_load(API)
-    df.to_csv('data/MBTA_stops.csv')
+    df.to_csv('data/MBTA_stops.csv', index=False)
     return df
 
 if __name__ == '__main__':
