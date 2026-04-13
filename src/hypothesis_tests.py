@@ -22,9 +22,9 @@ def load_data():
 
 def test_h4_restaurant_clusters(df):
     '''Restaurants in dense clusters are more successful'''
-    print('='*60)
+    print('=' * 60)
     print('H4: Restaurants in dense clusters are more successful')
-    print('='*60)
+    print('=' * 60)
 
     if 'lat' not in df.columns:
         print('Skipping: no GPS data')
@@ -37,7 +37,8 @@ def test_h4_restaurant_clusters(df):
         print('Not enough restaurants for analysis')
         return
 
-    radius = 0.003  # ~300m for restaurant clusters
+    # count nearby restaurants within ~300m (~0.003 degrees)
+    radius = 0.003
     r_lats = restaurants['lat'].values
     r_lons = restaurants['lon'].values
 
@@ -47,13 +48,15 @@ def test_h4_restaurant_clusters(df):
         nearby_restaurants[i] = (dists < radius).sum() - 1
 
     restaurants['nearby_restaurants'] = nearby_restaurants
-    restaurants['cluster_bin'] = pd.cut(restaurants['nearby_restaurants'],
-                                        bins=[-1, 0, 3, 8, 15, 100],
-                                        labels=['Isolated', '1-3', '4-8', '9-15', '15+'])
+    restaurants['cluster_bin'] = pd.cut(
+        restaurants['nearby_restaurants'],
+        bins=[-1, 0, 3, 8, 15, 100],
+        labels=['Isolated', '1-3', '4-8', '9-15', '15+']
+    )
 
     surv = restaurants.groupby('cluster_bin', observed=False).agg(
-        count=('is_expired', 'size'),
-        survival_rate=('is_expired', lambda x: (1 - x.mean()) * 100)
+        count=('is_closed', 'size'),
+        survival_rate=('is_closed', lambda x: (1 - x.mean()) * 100)
     ).round(1)
     print(surv)
 
@@ -66,32 +69,38 @@ def test_h4_restaurant_clusters(df):
     for i, v in enumerate(surv['survival_rate']):
         ax.text(i, v + 0.5, f'{v:.0f}%', ha='center', fontsize=10)
     plt.tight_layout()
-    plt.savefig(os.path.join(OUTPUT_DIR, 'h4_restaurant_clusters.png'), dpi=150)
+    plt.savefig(os.path.join(OUTPUT_DIR, 'h4_restaurant_clusters.png'),
+                dpi=150)
     print('Saved: outputs/h4_restaurant_clusters.png')
     plt.close()
 
     # map of restaurant clusters colored by survival
     fig, ax = plt.subplots(figsize=(10, 8))
-    colors = restaurants['is_expired'].map({0: 'steelblue', 1: 'coral'})
+    colors = restaurants['is_closed'].map({0: 'steelblue', 1: 'coral'})
     sizes = restaurants['nearby_restaurants'] * 2 + 5
-    ax.scatter(restaurants['lon'], restaurants['lat'], c=colors, s=sizes, alpha=0.6)
+    ax.scatter(restaurants['lon'], restaurants['lat'], c=colors, s=sizes,
+               alpha=0.6)
     ax.set_xlabel('Longitude')
     ax.set_ylabel('Latitude')
-    ax.set_title('Restaurant Locations (Blue=Active, Red=Expired, Size=Cluster Density)')
+    ax.set_title('Restaurant Locations '
+                 '(Blue=Active, Red=Closed, Size=Cluster Density)')
     plt.tight_layout()
     plt.savefig(os.path.join(OUTPUT_DIR, 'h4_restaurant_map.png'), dpi=150)
     print('Saved: outputs/h4_restaurant_map.png')
     plt.close()
 
-    # statistical test
+    # statistical test: point-biserial correlation
     corr, p = stats.pointbiserialr(
-        restaurants['is_expired'], restaurants['nearby_restaurants']
+        restaurants['is_closed'], restaurants['nearby_restaurants']
     )
-    print(f'\nCorrelation (expired vs nearby restaurants): r={corr:.4f}, p={p:.4f}')
+    print(f'\nCorrelation (closed vs nearby restaurants): r={corr:.4f}, '
+          f'p={p:.4f}')
     if corr < 0:
-        print('Negative = more nearby restaurants → less likely expired (SUPPORTS hypothesis)')
+        print('Negative = more nearby restaurants -> less likely closed '
+              '(SUPPORTS hypothesis)')
     else:
-        print('Positive = more nearby restaurants → more likely expired (contradicts hypothesis)')
+        print('Positive = more nearby restaurants -> more likely closed '
+              '(contradicts hypothesis)')
 
 
 def main():
