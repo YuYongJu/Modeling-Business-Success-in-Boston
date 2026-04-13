@@ -133,7 +133,7 @@ def maptiler_geocode(address, zipcode):
         
     return None, None
 
-def handle_withdrawals(df, gap_threshold=30):
+def handle_withdrawals(df, gap_threshold=300):
     '''
     Processes withdrawal entries in the DBA dataset.
     Attributes:
@@ -150,7 +150,7 @@ def handle_withdrawals(df, gap_threshold=30):
     df['Date of Filing'] = pd.to_datetime(df['Date of Filing'], errors='coerce', format="mixed")
     df['Date of Expiration'] = pd.to_datetime(df['Date of Expiration'], errors='coerce', format="mixed")
 
-    is_withdrawal = df['Type of Business'].str.upper().str.startswith('WITHDRAWAL')
+    is_withdrawal = df['Type of Business'].str.upper().str.startswith('WITHDRAW')
     date_withdrawals = df[
         is_withdrawal &
         df['Type of Business'].str.contains(r'\(\d+/\d+/\d+\)', regex=True)
@@ -163,7 +163,7 @@ def handle_withdrawals(df, gap_threshold=30):
         match = (
             (df['Business Name'] == w['Business Name']) &
             (df['Business Address'] == w['Business Address']) &
-            (~df['Type of Business'].str.upper().str.startswith('WITHDRAWAL'))
+            (~df['Type of Business'].str.upper().str.startswith('WITHDRAW'))
         )
         if not match.any():
             continue
@@ -178,11 +178,7 @@ def handle_withdrawals(df, gap_threshold=30):
             df.loc[match, 'Date of Expiration'] = w['Date of Filing']
             closures += 1
 
-    before = len(df)
     df = df[~is_withdrawal].reset_index(drop=True)
-    print(f"Removed {before - len(df)} withdrawal rows "
-          f"({continuous} re-registrations backdated, "
-          f"{closures} closures transferred).")
     return df
 
 def main():
@@ -194,16 +190,11 @@ def main():
     df = handle_withdrawals(df)
 
     cleaned_path = folder + "CityofBoston-CityClerkDBA_cleaned.csv"
-    if os.path.exists(cleaned_path):
-        df = pd.read_csv(cleaned_path)
+    if 'latitude' not in df.columns and 'longitude' not in df.columns:
+        df.to_csv(cleaned_path, index=False)
     else:
         df = geocode_addresses(df)
         df.to_csv(cleaned_path, index=False)
-
-    '''
-    get_lat_lon(df["Business Address"], df["City"], df["State"], df["Zipcode"])
-    df = add_lat_lon(df)
-    '''
 
 
 if __name__ == "__main__":
