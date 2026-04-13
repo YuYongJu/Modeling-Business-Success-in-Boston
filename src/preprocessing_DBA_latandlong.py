@@ -133,64 +133,57 @@ def maptiler_geocode(address, zipcode):
         
     return None, None
 
-def handle_withdrawals(df):
+def handle_withdrawals(df, gap_threshold=30):
     '''
-    Withdrawal rows mark either a closure or a re-registration.
-    - If a matching business (same name, same address) was filed 
-      on or near the withdrawal's expiration date, it's a 
-      re-registration: backdate the new entry's filing date.
-    - Otherwise it's a closure: transfer the expiration date 
-      to the original entry.
-    Drop all withdrawal rows after processing.
+    Processes withdrawal entries in the DBA dataset.
+    Attributes:
+        dataframe
+        threshold of days between withdraw and other business entry filing
+    Methods:
+        If "withdraw" business is continuous or re-filed within the threshold, consider continuous.
+            revise non-"withdraw" business entry with the earliest start date and latest end date.
+        Else consider it a closure, and two separate businesses.
+            set expiration date ("end date") to withdraw date
+    Returns:
+        dataframe with revised business entries, and dropped withdraw rows.
     '''
-    df['Date of Filing'] = pd.to_datetime(df['Date of Filing'], errors='coerce')
-    df['Date of Expiration'] = pd.to_datetime(df['Date of Expiration'], errors='coerce')
+    df['Date of Filing'] = pd.to_datetime(df['Date of Filing'], errors='coerce', format="mixed")
+    df['Date of Expiration'] = pd.to_datetime(df['Date of Expiration'], errors='coerce', format="mixed")
 
-    withdrawals = df[df['Type of Business'].str.upper() == 'WITHDRAWAL'].copy()
-    refile_window = pd.Timedelta(days=30)
+    is_withdrawal = df['Type of Business'].str.upper().str.startswith('WITHDRAWAL')
+    date_withdrawals = df[
+        is_withdrawal &
+        df['Type of Business'].str.contains(r'\(\d+/\d+/\d+\)', regex=True)
+    ].copy()
 
-    reregistrations = 0
+    continuous = 0
     closures = 0
 
-    for _, w in withdrawals.iterrows():
+    for _, w in date_withdrawals.iterrows():
         match = (
             (df['Business Name'] == w['Business Name']) &
             (df['Business Address'] == w['Business Address']) &
-            (df['Type of Business'].str.upper() != 'WITHDRAWAL')
+            (~df['Type of Business'].str.upper().str.startswith('WITHDRAWAL'))
         )
-        same_day = (
-            match &
-            ((df['Date of Filing'] - w['Date of Expiration']).abs() <= refile_window)
-        )
-        if same_day.any():
-            df.loc[same_day, 'Date of Filing'] = w['Date of Filing']
-            reregistrations += 1
+        if not match.any():
+            continue
+
+        original = df[match].iloc[0]
+        diff = abs((w['Date of Filing'] - original['Date of Filing']).days)
+
+        if diff <= gap_threshold:
+            df.loc[match, 'Date of Filing'] = original['Date of Filing']
+            continuous += 1
         else:
-            # actual closure — transfer expiration date
-            if match.any():
-                df.loc[match, 'Date of Expiration'] = w['Date of Expiration']
+            df.loc[match, 'Date of Expiration'] = w['Date of Filing']
             closures += 1
 
     before = len(df)
-    df = df[df['Type of Business'].str.upper() != 'WITHDRAWAL'].reset_index(drop=True)
+    df = df[~is_withdrawal].reset_index(drop=True)
     print(f"Removed {before - len(df)} withdrawal rows "
-          f"({reregistrations} re-registrations backdated, "
+          f"({continuous} re-registrations backdated, "
           f"{closures} closures transferred).")
     return df
-
-def classify_withdrawal(w):
-    w = w.strip()
-    if w.upper() == 'WITHDRAWAL':
-        return 'plain'
-    elif re.search(r'\(\d+/\d+/\d+\)', w):
-        return 'references date'
-    else:
-        return 'other'
-
-def extract_referenced_date(w):
-    match = re.search(r'\((\d+/\d+/\d+)\)', w)
-    return pd.to_datetime(match.group(1), errors='coerce') if match else pd.NaT
-
 
 def main():
     df = pd.read_csv(folder + filename, encoding="latin-1", dtype={"Zipcode": str})
@@ -198,6 +191,7 @@ def main():
 
     clear_private_info(df, [["File Number", "Owner Name", "Owner Address", "Owner Email", 'Ã¯Â»Â¿File Number']])
     df = drop_missing_addresses(df)
+    df = handle_withdrawals(df)
 
     cleaned_path = folder + "CityofBoston-CityClerkDBA_cleaned.csv"
     if os.path.exists(cleaned_path):
@@ -205,40 +199,6 @@ def main():
     else:
         df = geocode_addresses(df)
         df.to_csv(cleaned_path, index=False)
-
-    # also process all businesses with "WITHDRAWL" double entries!! dates line up for renewal.
-    # calc age
-
-    withdrawals = df[df['Type of Business'].str.upper().str.startswith('WITHDRAWAL')]
-    withdrawals['withdrawal_type'] = withdrawals['Type of Business'].apply(classify_withdrawal)
-    date_withdrawals = withdrawals[withdrawals['withdrawal_type'] == 'references date'].copy()
-    date_withdrawals['referenced_date'] = date_withdrawals['Type of Business'].apply(extract_referenced_date)
-    date_withdrawals['Date of Filing'] = pd.to_datetime(date_withdrawals['Date of Filing'], errors='coerce')
-    df['Date of Filing'] = pd.to_datetime(df['Date of Filing'], errors='coerce')
-
-    print(withdrawals['withdrawal_type'].value_counts())
-    print(f"\nTotal withdrawals: {len(withdrawals)}")
-    continuous = 0
-    gap = 0
-    for _, w in date_withdrawals.iterrows():
-        new_entry = df[
-            (df['Business Name'] == w['Business Name']) &
-            (df['Business Address'] == w['Business Address']) &
-            (~df['Type of Business'].str.upper().str.startswith('WITHDRAWAL'))
-        ]
-        if new_entry.empty:
-            gap += 1
-            continue
-        diff = abs((w['Date of Filing'] - new_entry['Date of Filing'].iloc[0]).days)
-        if diff <= 30:
-            continuous += 1
-        else:
-            gap += 1
-
-    print(f"Continuous (<=30 days): {continuous}")
-    print(f"Gap (>30 days): {gap}")
-
-    #df.to_csv(folder + "CityofBoston-CityClerkDBA_cleaned.csv", index=False)
 
     '''
     get_lat_lon(df["Business Address"], df["City"], df["State"], df["Zipcode"])
