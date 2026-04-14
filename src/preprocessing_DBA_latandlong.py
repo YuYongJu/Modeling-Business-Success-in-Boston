@@ -2,13 +2,11 @@ import requests
 import pandas as pd
 import time
 from urllib.parse import quote
-import os
-import re
 
 MAPTILER_API_KEY = 'aufX5kxfegadK9an5cZU'
 
 folder = "data/"
-filename = "CityofBoston-CityClerkDBA.csv"
+filename = "CityofBoston-CityClerkDBA"
 
 def clear_private_info(df, columns_to_drop):
     '''
@@ -133,7 +131,7 @@ def maptiler_geocode(address, zipcode):
         
     return None, None
 
-def handle_withdrawals(df, gap_threshold=300):
+def handle_withdrawals(df, gap_threshold=30):
     '''
     Processes withdrawal entries in the DBA dataset.
     Attributes:
@@ -150,7 +148,7 @@ def handle_withdrawals(df, gap_threshold=300):
     df['Date of Filing'] = pd.to_datetime(df['Date of Filing'], errors='coerce', format="mixed")
     df['Date of Expiration'] = pd.to_datetime(df['Date of Expiration'], errors='coerce', format="mixed")
 
-    is_withdrawal = df['Type of Business'].str.upper().str.startswith('WITHDRAW')
+    is_withdrawal = df['Type of Business'].str.upper().str.startswith('WITHDRAWAL')
     date_withdrawals = df[
         is_withdrawal &
         df['Type of Business'].str.contains(r'\(\d+/\d+/\d+\)', regex=True)
@@ -163,7 +161,7 @@ def handle_withdrawals(df, gap_threshold=300):
         match = (
             (df['Business Name'] == w['Business Name']) &
             (df['Business Address'] == w['Business Address']) &
-            (~df['Type of Business'].str.upper().str.startswith('WITHDRAW'))
+            (~df['Type of Business'].str.upper().str.startswith('WITHDRAWAL'))
         )
         if not match.any():
             continue
@@ -178,23 +176,35 @@ def handle_withdrawals(df, gap_threshold=300):
             df.loc[match, 'Date of Expiration'] = w['Date of Filing']
             closures += 1
 
+    before = len(df)
     df = df[~is_withdrawal].reset_index(drop=True)
+    print(f"Removed {before - len(df)} withdrawal rows "
+          f"({continuous} re-registrations backdated, "
+          f"{closures} closures transferred).")
     return df
 
 def main():
-    df = pd.read_csv(folder + filename, encoding="latin-1", dtype={"Zipcode": str})
-    df["Zipcode"] = df["Zipcode"].str.encode("ascii", errors="ignore").str.decode("ascii").str.strip()
-
+    try:
+        cleaned_path = folder + filename + '_cleaned.csv'
+        df = pd.read_csv(cleaned_path, encoding="latin-1", dtype={"Zipcode": str})
+    except:
+        path = folder + filename + '.csv'
+        df = pd.read_csv(path, encoding="latin-1", dtype={"Zipcode": str})
+        df["Zipcode"] = df["Zipcode"].str.encode("ascii", errors="ignore").str.decode("ascii").str.strip()
+    
     clear_private_info(df, [["File Number", "Owner Name", "Owner Address", "Owner Email", 'Ã¯Â»Â¿File Number']])
     df = drop_missing_addresses(df)
     df = handle_withdrawals(df)
 
-    cleaned_path = folder + "CityofBoston-CityClerkDBA_cleaned.csv"
-    if 'latitude' not in df.columns and 'longitude' not in df.columns:
-        df.to_csv(cleaned_path, index=False)
+    if 'latitude' in df.columns and 'longitude' in df.columns:
+        pass
     else:
         df = geocode_addresses(df)
-        df.to_csv(cleaned_path, index=False)
+
+    print(df.columns)
+
+    cleaned_path = folder + filename + '_cleaned.csv'
+    df.to_csv(cleaned_path, index=False)
 
 
 if __name__ == "__main__":

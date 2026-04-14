@@ -36,5 +36,8 @@ def add_distance_to_stops():
 def add_chain_count():
     pass
 
-def normalize_name():
-    pass
+def normalize_name(df, name_col):
+    df["business_name_normalized"] = df[name_col].apply(
+        lambda name: ''.join(char for char in str(name).lower() if char.isalnum() or char.isspace())
+        .replace("inc", "").replace("llc", "").strip())
+    return df

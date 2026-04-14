@@ -1,4 +1,15 @@
-# Take the data from the API and csv and add distance from train stop
+'''
+Calculate the following:
+
+business age (float): (today - date of issue) or (prior expiration - date of issue)
+business active (boolean)
+
+distance to nearest train stop (float)
+nearest train stop (string)
+
+chain/multi-location (int): number of restaurants with matching name
+'''
+
 import fetch_mbtaAPI
 import fetch_foodanddrink
 import preprocessing_DBA_latandlong
@@ -6,6 +17,9 @@ import pandas as pd
 import requests
 import matplotlib.pyplot as plt
 from math import sqrt
+import shared
+
+save_location = 'eda_plots/'
 
 def compile_datasets(df1, df2):
     '''
@@ -32,13 +46,21 @@ def compile_datasets(df1, df2):
 
 def calc_age(df):
     '''
-    Calculate age from today - date of issue
+    Calculate age and active status for each business.
+    Attributes: dataframe
+    Returns: dataframe with two new columns:
+        is_active: True if expiration date is in the future.
+        age_years: for active businesses, today - date of filing.
+                for closed businesses, date of expiration - date of filing.
     '''
     today = pd.Timestamp.today()
-    df["Date of Filing"] = pd.to_datetime(df.get("Date of Filing"), errors="coerce", format="mixed")
+    df["Date of Filing"] = pd.to_datetime(df["Date of Filing"], errors="coerce", format="mixed")
+    df['Date of Expiration'] = pd.to_datetime(df['Date of Expiration'], errors='coerce', format="mixed")
     df["issued"] = pd.to_datetime(df.get("issued"), errors="coerce")
-    
-    df["age_years"] = (today - df["Date of Filing"]).dt.days / 365
+
+    df['is_active'] = df['Date of Expiration'] > today
+    end_date = df['Date of Expiration'].where(~df['is_active'], other=today)
+    df['age_years'] = (end_date - df['Date of Filing']).dt.days / 365
     missing = df["age_years"].isna()
     df.loc[missing, "age_years"] = (today - df.loc[missing, "issued"]).dt.days / 365
     print(f"No age: {df['age_years'].isna().sum()} businesses")
@@ -55,7 +77,7 @@ def calculate_distance(gps1, gps2):
         gps1: tuple of (latitude, longitude) for first location
         gps2: tuple of (latitude, longitude) for second location
     Returns:
-        Distance in kilometers between the two locations
+        Distance in meters between the two locations
     '''
     lat1, lon1 = gps1
     lat2, lon2 = gps2
@@ -119,7 +141,7 @@ def plot_coords(businesses_df, stops_df):
     plt.tight_layout()
     plt.xlim(-71.2, -70.9)
     plt.ylim(42.2, 42.4)
-    plt.savefig("boston_map.png", dpi=150)
+    plt.savefig(save_location + "boston_map.png", dpi=150)
     plt.show()
 
 from difflib import SequenceMatcher
@@ -211,6 +233,21 @@ def merge_similar(df, name_col="business_name"):
     print(f"Removed {before - len(df)} fuzzy duplicates. {len(df)} remaining.")
     return df
 
+def plot_age_vs_transit(df):
+    plt.figure(figsize=(8, 5))
+    plt.scatter(
+        df['distance_to_closest_stop'] / 1000,
+        df['age_years'],
+        alpha=0.3, s=10, color='steelblue'
+    )
+    plt.xlabel('Distance to Nearest MBTA Stop (km)')
+    plt.ylabel('Business Age (years)')
+    plt.title('Business Age vs. Distance to Transit')
+    plt.tight_layout()
+    plt.xlim(0, 5)
+    plt.savefig('eda_plots/age_vs_transit_distance.png')
+    plt.show()
+
 def main():
     '''
     Fetch data
@@ -228,37 +265,26 @@ def main():
 
     # FETCH DATA
     stops_df = fetch_mbtaAPI.main()
-    '''
-    stops_df = pd.read_csv('data/MBTA_stops.csv')
-    licenses_df = fetch_foodanddrink.main()
-    DBA_df = pd.read_csv('data/CityofBoston-CityClerkDBA_cleaned.csv')
-    print("Data Loaded")
-    before = len(licenses_df) + len(DBA_df)
-
-    # COMPILE DATA
-    df = compile_datasets(licenses_df, DBA_df)
-    print(len(df))
-    '''
-
-    df = pd.read_csv('data/compiled_data.csv')
-    print(df.columns)
-
-    # CALCULATE VARIABLES
-    df = calc_age(df)
-    df = add_distance_to_stops(df, stops_df)
-    print(df.columns)
-
-    # SAVE AS NEW CSV
-    df.to_csv("data/compiled_data1.csv", index=False)
-
-
-    # PLOTS
-    df = df[
-        (df["latitude"] >= 42.2) & (df["latitude"] <= 42.4) &
-        (df["longitude"] >= -71.2) & (df["longitude"] <= -70.9)
-    ]
+    try:
+        df = pd.read_csv('data/compiled_data.csv')
+    except:
+        df = pd.read_csv('data/CityofBoston-CityClerkDBA_cleaned.csv')
     
+    if 'distance_to_closest_stop' in df.columns:
+        pass
+    else:
+        df = add_distance_to_stops(df, stops_df)
+
+    df = shared.normalize_name(df, "Business Name")
+    df = find_remove_outliers(df)
+    df = calc_age(df)
+    df.drop(df[df['age_years'] < 0].index, inplace=True)
+    df = add_chain_count(df)
+
+    df.to_csv("data/compiled_data.csv", index=False)
     plot_coords(df, stops_df)
+    plot_age_vs_transit(df)
+
 
 if __name__ == '__main__':
     main()
