@@ -15,7 +15,7 @@ today = pd.Timestamp.today()
 dba['is_active'] = (dba['Date of Expiration'] > today)
 
 # map data to neighborhood, same as food/drink licenses zips
-zip_to_neighborhood = {z: n for n, zips in ZIPS_BY_NEIGHBORHOOD.items() for z in zips}
+zip_to_neighborhood = {z: n for n, zips in shared.ZIPS_BY_NEIGHBORHOOD.items() for z in zips}
 dba['neighborhood'] = dba['Zipcode'].map(zip_to_neighborhood)
 dba = dba.dropna(subset=['neighborhood'])
 
