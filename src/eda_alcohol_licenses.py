@@ -37,7 +37,7 @@ data['alcohol_label'] = data['alcohol_label'].map({False: 'Has Alcohol', True: '
 
 # Overall alcohol vs. no liquor bar chart
 overall_counts = data['alcohol_label'].value_counts()
-overall_counts.plot(kind='bar', figsize=(6,4), color=['steelblue', 'orange'],
+overall_counts.plot(kind='bar', figsize=(6,4), color=['steelblue', 'steelblue'],
                     title='Alcohol vs. No Liquor Licenses (Overall)')
 plt.xlabel('License Type')
 plt.ylabel('Number of Licenses')
