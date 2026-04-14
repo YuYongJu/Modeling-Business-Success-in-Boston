@@ -6,3 +6,6 @@ __pycache__/
 
 data/
 data
+
+src/modeling_notebook.ipynb
+src/modeling.py
