@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import shared
 
-filename = 'data/CityofBoston-DBA_cleaned.csv'
+filename = 'data/CityofBoston-CityClerkDBA_cleaned.csv'
 dba = pd.read_csv(filename)
 save_location = 'eda_plots/'
 
