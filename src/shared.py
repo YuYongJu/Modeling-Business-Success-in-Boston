@@ -1,3 +1,8 @@
+import pandas as pd
+
+ZIPS_BY_NEIGHBORHOOD = {
+
+}
 '''
 Shared constants and functions used across preprocessing, EDA, and
 hypothesis testing.
@@ -10,15 +15,19 @@ DATA_FILE = _REPO_ROOT / 'data' / 'businesstypes.csv'
 
 ZIPS_BY_NEIGHBORHOOD = {
     'Allston/Brighton': [2134, 2135, 2163],
-    'Back Bay/Beacon Hill': [2108, 2116, 2117, 2123, 2133, 2199, 2216, 2217, 2295],
-    'Central Boston': [2101, 2102, 2103, 2104, 2105, 2106, 2107, 2109, 2110, 2111, 2112, 2113, 2114, 2196, 2201, 2202, 2203, 2204, 2205, 2206, 2207, 2208, 2209, 2211, 2212, 2222, 2293],
+    'Back Bay': [2116, 2117, 2199, 2216, 2217, 2295],
+    'Beacon Hill': [2108, 2123, 2133],
     'Charlestown': [2129],
+    'Chinatown/Downtown': [2111],
+    'Downtown/Financial District': [2109, 2110],
     'Dorchester': [2122, 2124, 2125],
     'East Boston': [2128, 2228],
     'Fenway/Kenmore': [2115, 2215],
+    'Government Center/West End': [2101, 2102, 2103, 2104, 2105, 2106, 2107, 2113, 2114, 2196],
     'Hyde Park': [2136],
     'Jamaica Plain': [2130],
     'Mattapan': [2126],
+    'North End': [2112],
     'Roslindale': [2131],
     'Roxbury': [2119, 2120, 2121],
     'South Boston': [2127],
@@ -71,8 +80,17 @@ def categorize_business_type(btype):
     return 'Other'
 
 
-def encode_neighborhoods():
-    pass
+def encode_neighborhoods(df, zip_col):
+    '''
+    Add a 'neighborhood' column based on zip code.
+    Rows with unrecognized zips get NaN.
+    '''
+    zip_to_neighborhood = {
+        z: n for n, zips in ZIPS_BY_NEIGHBORHOOD.items() for z in zips
+    }
+    df[zip_col] = pd.to_numeric(df[zip_col], errors='coerce')
+    df['neighborhood'] = df[zip_col].map(zip_to_neighborhood)
+    return df
 
 
 def calculate_distance():

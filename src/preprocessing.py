@@ -215,31 +215,6 @@ def find_remove_outliers(df):
     print(f"Removed {before - after} outliers based on latitude and longitude ({after} remaining)")
     return df
 
-def plot_coords(businesses_df, stops_df):
-    """
-    Plot business and MBTA stop locations.
-    Businesses in blue, stops in red.
-    """
-    plt.figure(figsize=(10, 10))
-
-    plt.scatter(
-        businesses_df["longitude"], businesses_df["latitude"],
-        c="blue", s=5, alpha=0.5, label="Businesses"
-    )
-    plt.scatter(
-        stops_df["longitude"], stops_df["latitude"],
-        c="red", s=20, alpha=0.8, label="MBTA Stops"
-    )
-
-    plt.xlabel("Longitude")
-    plt.ylabel("Latitude")
-    plt.title("Boston Businesses and MBTA Stops")
-    plt.legend()
-    plt.tight_layout()
-    plt.xlim(-71.2, -70.9)
-    plt.ylim(42.2, 42.4)
-    plt.savefig(save_location + "boston_map.png", dpi=150)
-    plt.show()
 
 from difflib import SequenceMatcher
 
@@ -329,21 +304,6 @@ def merge_similar(df, name_col="business_name"):
     print(f"Removed {before - len(df)} fuzzy duplicates. {len(df)} remaining.")
     return df
 
-def plot_age_vs_transit(df):
-    plt.figure(figsize=(8, 5))
-    plt.scatter(
-        df['distance_to_closest_stop'] / 1000,
-        df['age_years'],
-        alpha=0.3, s=10, color='steelblue'
-    )
-    plt.xlabel('Distance to Nearest MBTA Stop (km)')
-    plt.ylabel('Business Age (years)')
-    plt.title('Business Age vs. Distance to Transit')
-    plt.tight_layout()
-    plt.xlim(0, 5)
-    plt.savefig('eda_plots/age_vs_transit_distance.png')
-    plt.show()
-
 def main():
     #fetch all data
     stops_df = fetch_mbtaAPI.main()
@@ -359,13 +319,12 @@ def main():
 
     df = shared.normalize_name(df, "Business Name")
     df = find_remove_outliers(df)
+    df = shared.encode_neighborhoods(df, 'Zipcode')
     df = calc_age(df)
     df.drop(df[df['age_years'] < 0].index, inplace=True)
     df = add_chain_count(df)
 
     df.to_csv("data/compiled_data.csv", index=False)
-    plot_coords(df, stops_df)
-    plot_age_vs_transit(df)
 
 if __name__ == '__main__':
     main()
