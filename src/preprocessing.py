@@ -1,4 +1,15 @@
-# Take the data from the API and csv and add distance from train stop
+'''
+Calculate the following:
+
+business age (float): (today - date of issue) or (prior expiration - date of issue)
+business active (boolean)
+
+distance to nearest train stop (float)
+nearest train stop (string)
+
+chain/multi-location (int): number of restaurants with matching name
+'''
+
 import fetch_mbtaAPI
 import fetch_foodanddrink
 import preprocessing_DBA_latandlong
@@ -7,6 +18,9 @@ import requests
 import matplotlib.pyplot as plt
 from math import sqrt
 import time # for a pause between API calls to avoid rate limits
+import shared
+
+save_location = 'eda_plots/'
 
 # For each business, compare their gps location to gps location of train stops
 
@@ -51,12 +65,12 @@ def transform_all_EPSG_GPS(df, x_col="gpsx", y_col="gpsy"):
     """
     coords = list(zip(df[x_col], df[y_col]))
     transformed_coords = []
-    
+
     for i in range(0, len(coords), BATCH_SIZE):
         batch = coords[i:i+BATCH_SIZE]
         transformed_batch = transform_batch(batch)
         transformed_coords.extend(transformed_batch)
-        
+
     print("transformed coords:", len(transformed_coords))
     df.assign(latitude=[lat for lat, lon in transformed_coords], longitude=[lon for lat, lon in transformed_coords], inplace=True)
 
@@ -104,15 +118,54 @@ def geocode_all_addresses(df, address_col="Business Address"):
     df["longitude"] = [lon for lat, lon in geocoded]
     return df
 
-def compile_datasets(businesses_df, DBA_files):
+def compile_datasets(df1, df2):
     '''
     Combine the two business dataframes, adding any missing columns to each and filling with NaN.
     '''
-    # Get all unique columns from both dataframes
-    licence_cols = set(businesses_df.columns)
-    DBA_cols = set(DBA_files.columns)
-    print("Licence columns:", licence_cols)
-    print("DBA columns:", DBA_cols)
+    rename_map = {
+        "Business Name": "business_name",
+        "Business Address": "address",
+        "Type of Business": "license_category",
+        "City": "city",
+        "State": "state",
+        "Zipcode": "zip",
+    }
+    df2 = df2.rename(columns=rename_map)
+    combined = pd.concat([df1, df2], ignore_index=True)
+    combined["business_name_normalized"] = combined["business_name"].apply(
+        lambda name: ''.join(char for char in str(name).lower() if char.isalnum() or char.isspace())
+        .replace("inc", "").replace("llc", "").strip())
+    combined = combined.drop_duplicates(subset=["business_name_normalized", "latitude", "longitude"])
+    combined = fuzzy_duplicates(combined, name_col="business_name")
+    print("combined:", len(combined))
+
+    return combined
+
+def calc_age(df):
+    '''
+    Calculate age and active status for each business.
+    Attributes: dataframe
+    Returns: dataframe with two new columns:
+        is_active: True if expiration date is in the future.
+        age_years: for active businesses, today - date of filing.
+                for closed businesses, date of expiration - date of filing.
+    '''
+    today = pd.Timestamp.today()
+    df["Date of Filing"] = pd.to_datetime(df["Date of Filing"], errors="coerce", format="mixed")
+    df['Date of Expiration'] = pd.to_datetime(df['Date of Expiration'], errors='coerce', format="mixed")
+    df["issued"] = pd.to_datetime(df.get("issued"), errors="coerce")
+
+    df['is_active'] = df['Date of Expiration'] > today
+    end_date = df['Date of Expiration'].where(~df['is_active'], other=today)
+    df['age_years'] = (end_date - df['Date of Filing']).dt.days / 365
+    missing = df["age_years"].isna()
+    df.loc[missing, "age_years"] = (today - df.loc[missing, "issued"]).dt.days / 365
+    print(f"No age: {df['age_years'].isna().sum()} businesses")
+    return df
+
+def add_chain_count(df, name_col="business_name_normalized"):
+    df["chain_count"] = df.groupby(name_col)[name_col].transform("count")
+    return df
 
 def calculate_distance(gps1, gps2):
     '''
@@ -121,7 +174,7 @@ def calculate_distance(gps1, gps2):
         gps1: tuple of (latitude, longitude) for first location
         gps2: tuple of (latitude, longitude) for second location
     Returns:
-        Distance in kilometers between the two locations
+        Distance in meters between the two locations
     '''
     lat1, lon1 = gps1
     lat2, lon2 = gps2
@@ -183,26 +236,136 @@ def plot_coords(businesses_df, stops_df):
     plt.title("Boston Businesses and MBTA Stops")
     plt.legend()
     plt.tight_layout()
-    plt.savefig("boston_map.png", dpi=150)
+    plt.xlim(-71.2, -70.9)
+    plt.ylim(42.2, 42.4)
+    plt.savefig(save_location + "boston_map.png", dpi=150)
+    plt.show()
+
+from difflib import SequenceMatcher
+
+DISTANCE_THRESHOLD_KM = 0.15
+NAME_SIMILARITY_THRESHOLD = 0.85  # 0–1, higher = stricter matching
+
+def fuzzy_duplicates(df, name_col="business_name"):
+    """
+    Removes duplicate businesses with matching normalized names within DISTANCE_THRESHOLD_KM.
+    Keeps the first occurrence.
+    """
+    df = df.dropna(subset=["latitude", "longitude"]).reset_index(drop=True)
+    df = df.sort_values("latitude").reset_index(drop=True)
+    rows = df.to_dict("records")
+    duplicate_indices = set()
+
+    for i in range(len(rows)):
+        if i in duplicate_indices:
+            continue
+        for j in range(i + 1, len(rows)):
+            if j in duplicate_indices:
+                continue
+            if abs(rows[j]["latitude"] - rows[i]["latitude"]) > 0.0015:
+                break
+            if rows[i][name_col] != rows[j][name_col]:
+                continue
+            dist = calculate_distance(
+                (rows[i]["latitude"], rows[i]["longitude"]),
+                (rows[j]["latitude"], rows[j]["longitude"])
+            )
+            if dist <= DISTANCE_THRESHOLD_KM:
+                duplicate_indices.add(j)
+
+    before = len(df)
+    df = df.drop(index=list(duplicate_indices)).reset_index(drop=True)
+    print(f"Removed {before - len(df)} fuzzy duplicates. {len(df)} remaining.")
+    return df
+
+def find_nearby_duplicates(df1, df2, name_col="business_name"):
+    """
+    Finds businesses in df1 that have a matching name and nearby location in df2.
+    """
+    rows1 = df1.dropna(subset=["latitude", "longitude"]).to_dict("records")
+    rows2 = df2.dropna(subset=["latitude", "longitude"]).to_dict("records")
+
+    for r1 in rows1:
+        for r2 in rows2:
+            if r1 is r2:
+                continue
+            if r1[name_col] != r2[name_col]:
+                continue
+            dist = calculate_distance(
+                (r1["latitude"], r1["longitude"]),
+                (r2["latitude"], r2["longitude"])
+            )
+            if dist <= DISTANCE_THRESHOLD_KM:
+                pass
+
+def _name_similarity(a, b):
+    """Returns similarity ratio 0–1 between two strings."""
+    return SequenceMatcher(None, str(a).lower().strip(), str(b).lower().strip()).ratio()
+
+def merge_similar(df, name_col="business_name"):
+    """
+    Removes fuzzy duplicate businesses within DISTANCE_THRESHOLD_KM.
+    Keeps the first occurrence.
+    """
+    df = df.dropna(subset=["latitude", "longitude"]).reset_index(drop=True)
+    rows = df.to_dict("records")
+    duplicate_indices = set()
+
+    for j in range(i + 1, len(rows)):
+        if j in duplicate_indices:
+            continue
+        dist = calculate_distance(
+            (rows[i]["latitude"], rows[i]["longitude"]),
+            (rows[j]["latitude"], rows[j]["longitude"])
+        )
+        if dist > DISTANCE_THRESHOLD_KM:
+            continue
+        if _name_similarity(rows[i][name_col], rows[j][name_col]) < NAME_SIMILARITY_THRESHOLD:
+            continue
+        duplicate_indices.add(j)
+
+    before = len(df)
+    df = df.drop(index=list(duplicate_indices)).reset_index(drop=True)
+    print(f"Removed {before - len(df)} fuzzy duplicates. {len(df)} remaining.")
+    return df
+
+def plot_age_vs_transit(df):
+    plt.figure(figsize=(8, 5))
+    plt.scatter(
+        df['distance_to_closest_stop'] / 1000,
+        df['age_years'],
+        alpha=0.3, s=10, color='steelblue'
+    )
+    plt.xlabel('Distance to Nearest MBTA Stop (km)')
+    plt.ylabel('Business Age (years)')
+    plt.title('Business Age vs. Distance to Transit')
+    plt.tight_layout()
+    plt.xlim(0, 5)
+    plt.savefig('eda_plots/age_vs_transit_distance.png')
     plt.show()
 
 def main():
     #fetch all data
     stops_df = fetch_mbtaAPI.main()
-    businesses_df = fetch_foodanddrink.main()
+    try:
+        df = pd.read_csv('data/compiled_data.csv')
+    except:
+        df = pd.read_csv('data/CityofBoston-CityClerkDBA_cleaned.csv')
 
-    #transform from EPSG/geocode from address all gps goordinates
-    transform_all(businesses_df)
-    drop_missing_coords(businesses_df)
-    DBA_files = preprocessing_DBA_latandlong.main()
+    if 'distance_to_closest_stop' in df.columns:
+        pass
+    else:
+        df = add_distance_to_stops(df, stops_df)
 
-    #concactenate the two business dataframes
+    df = shared.normalize_name(df, "Business Name")
+    df = find_remove_outliers(df)
+    df = calc_age(df)
+    df.drop(df[df['age_years'] < 0].index, inplace=True)
+    df = add_chain_count(df)
 
-    #process both files to add distance to stops and plot
-    businesses_df = add_distance_to_stops(businesses_df, stops_df)
-    DBA_files = add_distance_to_stops(DBA_files, stops_df)
-    businesses_df = find_remove_outliers(businesses_df)
-    plot_coords(businesses_df, stops_df)
+    df.to_csv("data/compiled_data.csv", index=False)
+    plot_coords(df, stops_df)
+    plot_age_vs_transit(df)
 
 if __name__ == '__main__':
     main()

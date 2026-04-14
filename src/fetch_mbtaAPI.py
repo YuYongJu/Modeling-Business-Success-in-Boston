@@ -1,5 +1,6 @@
 import requests
 import pandas as pd
+import os
 # Scrape MBTA API data and make a dataframe
 def create_API_variables():
     '''
@@ -26,6 +27,8 @@ def call_API_load(API):
     return gps_coords
 
 def main():
+    if os.path.exists('data/MBTA_stops.csv'):
+        return pd.read_csv('data/MBTA_stops.csv')
     API = create_API_variables()
     return call_API_load(API)
 
