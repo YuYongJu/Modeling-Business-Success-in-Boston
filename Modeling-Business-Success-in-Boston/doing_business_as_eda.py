@@ -3,7 +3,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-dba = pd.read_csv('/Users/abigailrillovick/Desktop/26s-ds2500-rillovick/project/CityofBoston-DBA_cleaned.csv')
+filename = 'data/CityofBoston-CityClerkDBA_cleaned.csv'
+dba = pd.read_csv(filename)
+save_location = 'eda_plots/'
 
 # classify active vs. expired
 dba['Date of Expiration'] = pd.to_datetime(dba['Date of Expiration'], errors='coerce')
@@ -36,7 +38,7 @@ dba['neighborhood'] = dba['Zipcode'].map(zip_to_neighborhood)
 dba = dba.dropna(subset=['neighborhood'])
 
 # chart 1: overall active vs. expired businesses
-dba['is_active'].value_counts().plot(kind='bar', figsize=(6,4), color=['steelblue', 'orange'],
+dba['is_active'].value_counts().plot(kind='bar', figsize=(6,4), color=['steelblue', 'steelblue'],
                                      title='Active vs. Expired Businesses (Overall)')
 plt.xticks([0,1], ['Active', 'Expired'], rotation=0)
 plt.ylabel('Counts')

@@ -22,7 +22,7 @@ ZIPS_BY_NEIGHBORHOOD = {
         'West Roxbury' : [2132]
     }
 
-data = pd.read_csv('/Users/abigailrillovick/Desktop/26s-ds2500-rillovick/Modeling-Business-Success-in-Boston/Boston_food_drink_licenses.csv')
+data = pd.read_csv('data/food_drink_licenses.csv')
 
 # map data to neighborhood
 zip_to_neighborhood = {z: n for n, zips in ZIPS_BY_NEIGHBORHOOD.items() for z in zips}
@@ -37,7 +37,7 @@ data['alcohol_label'] = data['alcohol_label'].map({False: 'Has Alcohol', True: '
 
 # Overall alcohol vs. no liquor bar chart
 overall_counts = data['alcohol_label'].value_counts()
-overall_counts.plot(kind='bar', figsize=(6,4), color=['steelblue', 'orange'],
+overall_counts.plot(kind='bar', figsize=(6,4), color=['steelblue', 'steelblue'],
                     title='Alcohol vs. No Liquor Licenses (Overall)')
 plt.xlabel('License Type')
 plt.ylabel('Number of Licenses')
