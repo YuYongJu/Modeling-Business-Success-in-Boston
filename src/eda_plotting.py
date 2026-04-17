@@ -86,62 +86,116 @@ def plot_chain_vs_longevity(df):
         labels=['Independent', 'Small Chain (2-4)', 'Large Chain (5+)']
     )
 
-    plt.figure(figsize=(8, 5))
-    df.boxplot(
-        column='age_years',
-        by='chain_category',
-        grid=False
+    groups = ['Independent', 'Small Chain (2-4)', 'Large Chain (5+)']
+    data = [
+        df.loc[df['chain_category'] == g, 'age_years'].dropna().values
+        for g in groups
+    ]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    bp = ax.boxplot(
+        data,
+        tick_labels=groups,
+        patch_artist=True,
+        medianprops=dict(color='red', linewidth=2.5),
+        boxprops=dict(color='black', linewidth=1.8),
+        whiskerprops=dict(color='black', linewidth=1.6),
+        capprops=dict(color='black', linewidth=2.0),
+        flierprops=dict(
+            marker='o', markerfacecolor='red',
+            markeredgecolor='black', markersize=5
+        ),
+        widths=0.5
     )
-    plt.title('Business Longevity by Chain Status')
-    plt.suptitle('')
-    plt.xlabel('Chain Category')
-    plt.ylabel('Age (years)')
+
+    box_colors = ['#a8c4e0', '#b5d8b5', '#f4c97a']
+    for patch, color in zip(bp['boxes'], box_colors):
+        patch.set_facecolor(color)
+
+    ax.set_title(
+        'Business Longevity by Chain Status',
+        fontsize=13, color='black', pad=12
+    )
+    ax.set_xlabel('Chain Category', fontsize=11, color='black', labelpad=8)
+    ax.set_ylabel('Age (years)', fontsize=11, color='black', labelpad=8)
+    ax.tick_params(colors='black', labelsize=10)
+    ax.yaxis.grid(True, color='lightgray', linewidth=0.8, zorder=0)
+
+    for spine in ax.spines.values():
+        spine.set_edgecolor('black')
+        spine.set_linewidth(1.2)
+
     plt.tight_layout()
-    plt.savefig(save_location + 'chain_vs_longevity.png')
+    plt.savefig(save_location + 'chain_vs_longevity.png', dpi=150)
     plt.show()
 
 def plot_age_by_neighborhood(df):
+    current_year = 2026
+    global_mode = 4
+    ref_year = current_year - global_mode
+
     order = (
         df.groupby('neighborhood')['age_years']
         .median()
         .sort_values()
         .index
     )
-    df['neighborhood'] = pd.Categorical(df['neighborhood'], categories=order, ordered=True)
+    df['neighborhood'] = pd.Categorical(
+        df['neighborhood'], categories=order, ordered=True
+    )
     df = df.sort_values('neighborhood')
 
-    fig, ax = plt.subplots(figsize=(16, 8))
+    fig, ax = plt.subplots(figsize=(10, 7))
+
+    # Narrower boxes via widths parameter
     df.boxplot(
         column='age_years',
         by='neighborhood',
         grid=False,
         ax=ax,
-        boxprops=dict(color='black'),
-        whiskerprops=dict(color='black'),
-        capprops=dict(color='black'),
-        medianprops=dict(color='red', linewidth=2),
+        boxprops=dict(color='black', linewidth=1.5),
+        whiskerprops=dict(color='black', linewidth=1.5),
+        capprops=dict(color='black', linewidth=1.5),
+        medianprops=dict(color='red', linewidth=2.5),
         showmeans=False
     )
-    plt.title('Business Age by Neighborhood')
+
+    # Titles and labels with large font
+    ax.set_title('Business Age by Neighborhood', fontsize=20, pad=15)
     plt.suptitle('')
-    plt.xlabel('Neighborhood')
-    plt.ylabel('Age (years)')
-    plt.xticks(rotation=45, ha='right')
+    ax.set_xlabel('Neighborhood', fontsize=16)
+    ax.set_ylabel('Year Registered', fontsize=16)
+    plt.xticks(rotation=45, ha='right', fontsize=14)
+    plt.yticks(fontsize=14)
 
-    stats = df.groupby('neighborhood')['age_years'].agg(
-        ['mean', lambda x: x.quantile(0.25), lambda x: x.quantile(0.75)]
+    # Border
+    for spine in ax.spines.values():
+        spine.set_visible(True)
+        spine.set_edgecolor('black')
+        spine.set_linewidth(1.5)
+
+    # Global mean reference line
+    ax.axhline(
+        y=global_mode,
+        color='steelblue',
+        linestyle='--',
+        linewidth=2,
+        zorder=5
     )
-    stats.columns = ['mean', 'Q1', 'Q3']
-
-    for i, neighborhood in enumerate(order):
-        row = stats.loc[neighborhood]
-        ax.text(i + 1.4, row['mean'],
-                f"Q1: {row['Q1']:.1f}\nM: {row['mean']:.1f}\nQ3: {row['Q3']:.1f}",
-                ha='left', va='center', fontsize=16,
-                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    ax.text(
+        len(order) + 0.6, global_mode,
+        f'Mode: {global_mode} years',
+        va='center', ha='left', fontsize=13, color='steelblue',
+        bbox=dict(boxstyle='round', facecolor='white',
+                  edgecolor='steelblue', linewidth=1.5, alpha=0.9)
+    )
 
     plt.tight_layout()
-    plt.savefig(save_location + 'age_by_neighborhood.png', dpi=150)
+    plt.savefig(
+        save_location + 'age_by_neighborhood.png',
+        dpi=150, bbox_inches='tight'
+    )
     plt.show()
 
 def plot_active_by_neighborhood(df):
@@ -161,12 +215,12 @@ def plot_active_by_neighborhood(df):
         if row['pct_inactive'] > 5:
             ax.text(i, row['pct_inactive'] / 2,
                 f"{row['pct_inactive']:.1f}%",
-                ha='center', va='center', fontsize=12, color='white', fontweight='bold')
+                ha='center', va='center', fontsize=12, fontweight='bold')
 
         if row['pct_active'] > 5:
             ax.text(i, row['pct_inactive'] + row['pct_active'] / 2,
                     f"{row['pct_active']:.1f}%",
-                    ha='center', va='center', fontsize=12, color='white', fontweight='bold')
+                    ha='center', va='center', fontsize=12, fontweight='bold')
 
     
     plt.title('Active vs Inactive Businesses by Neighborhood')
