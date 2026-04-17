@@ -41,18 +41,21 @@ ZIP_TO_NEIGHBORHOOD = {
     z: n for n, zips in ZIPS_BY_NEIGHBORHOOD.items() for z in zips
 }
 
-
 def categorize_business_type(btype):
-    '''Map a cleaned business_type string to a broader category.
-
-    Expects btype to already be lowercased and stripped.
+    '''
+    Lowercase, strip, and map a business type string to a broader category.
     '''
     if btype != btype:
         return 'Other'
+    btype = str(btype).lower().strip()
+
     if ('restaurant' in btype or 'food' in btype or 'pub' in btype
             or 'cafe' in btype or 'coffee' in btype or 'pizza' in btype
             or 'bakery' in btype):
         return 'Food & Drink'
+    if ('supermarket' in btype or 'grocery' in btype or 'convenience' in btype
+            or 'liquor' in btype or 'market' in btype):
+        return 'Grocery & Convenience'
     if ('beauty' in btype or 'hair' in btype or 'salon' in btype
             or 'barber' in btype or 'spa' in btype or 'nail' in btype
             or 'massage' in btype or 'fitness' in btype
@@ -75,7 +78,8 @@ def categorize_business_type(btype):
         return 'Arts & Entertainment'
     if ('retail' in btype or 'store' in btype or 'shop' in btype
             or 'boutique' in btype or 'jewelry' in btype
-            or 'florist' in btype or 'flower' in btype):
+            or 'florist' in btype or 'flower' in btype
+            or 'home improvement' in btype):
         return 'Retail'
     return 'Other'
 
@@ -93,9 +97,28 @@ def encode_neighborhoods(df, zip_col):
     return df
 
 
-def calculate_distance():
-    pass
+def calculate_distance(gps1, gps2):
+    '''
+    Calculate Manhattan distance (city blocks) between two gps coordinates.
+    Attributes:
+        gps1: tuple of (latitude, longitude) for first location
+        gps2: tuple of (latitude, longitude) for second location
+    Returns:
+        Distance in meters between the two locations
+    '''
+    lat1, lon1 = gps1
+    lat2, lon2 = gps2
 
+    distance = ((lat1 - lat2) + (lon1 - lon2)) * 111111  # Approximate conversion to kilometers
+
+    return distance
+
+def calculate_age(df, filing_col, expiration_col):
+    df[filing_col] = pd.to_datetime(df[filing_col], errors='coerce')
+    df[expiration_col] = pd.to_datetime(df[expiration_col], errors='coerce')
+    df = df.dropna(subset=[filing_col, expiration_col])
+    df["age"] = (df[expiration_col] - df[filing_col]).dt.days
+    return df
 
 def add_distance_to_stops():
     pass
