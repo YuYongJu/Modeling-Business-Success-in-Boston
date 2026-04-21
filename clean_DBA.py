@@ -3,7 +3,7 @@ import pandas as pd
 folder = "data/"
 filename = "CityofBoston-CityClerkDBA.csv"
 
-df = pd.read_csv(folder + filename, encoding="latin-1")
+df = pd.read_csv(folder + filename, encoding="latin-1", nrows=1000)
 
 # Drop unwanted columns
 df = df.drop(columns=[
