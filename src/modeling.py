@@ -1,6 +1,4 @@
 '''
-Business Success Modeling for Boston Storefronts — DS2500 Section 01
-
 Predicts whether a Boston business is currently active (is_active=True)
 based on location, age, neighborhood, and business category.
 
@@ -94,7 +92,7 @@ def load_and_prepare():
     return df
 
 
-# Part 1: KNN classification
+# KNN classification
 
 def run_classification(df):
     '''Predict is_active using KNN; report accuracy/precision/recall + CM.'''
@@ -159,7 +157,7 @@ def run_classification(df):
     plt.close()
     print(f'\nSaved: outputs/modeling_confusion_matrix.png')
 
-# Part 2: K-Means clustering on GPS
+# K-Means clustering on GPS
 
 def run_clustering(df):
     '''K-Means on (lat, lon); report survival rate per cluster + map.'''
@@ -205,6 +203,8 @@ def run_clustering(df):
 # Main
 
 def main():
+    print('=' * 60)
+    print('BUSINESS SUCCESS MODELING')
     print('=' * 60)
     df = load_and_prepare()
     print(f'Loaded {len(df)} businesses from data/businesstypes.csv')
