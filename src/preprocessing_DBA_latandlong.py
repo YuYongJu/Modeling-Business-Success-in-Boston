@@ -71,6 +71,9 @@ def drop_missing_addresses(df, address_col="Business Address"):
     return df
 
 def census_geocode(address):
+    """
+    Geocodes a single address using the Census geolocator. 
+    """
     geolocator = Census(user_agent="boston_business_longevity")
     try:
         location = geolocator.geocode(address)
@@ -109,6 +112,10 @@ def geocode_addresses(df):
     return df
 
 def maptiler_geocode(address, zipcode):
+    """
+    Geocodes a single address using the Maptiler Geocoding API.
+    Cleans the address by removing unit numbers and extra details. 
+    """
     clean_address = str(address).split(',')[0].split('#')[0].strip()
     full_query = f"{clean_address}, {zipcode}"
 
