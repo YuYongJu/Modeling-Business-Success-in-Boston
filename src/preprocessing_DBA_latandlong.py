@@ -200,7 +200,7 @@ def main():
     print(df.columns)
 
     cleaned_path = folder + filename + '_cleaned.csv'
-    df.to_csv(cleaned_path, index=False)
+    df.head(1000).to_csv(cleaned_path, index=False)
 
 
 if __name__ == "__main__":
