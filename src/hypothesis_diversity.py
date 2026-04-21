@@ -14,7 +14,7 @@ LABELS         = ["Low", "Medium", "High"]
 DAY_INTERVALS  = [1000, 2500, 4000]
 
 # Load & prepare data
-df = pd.read_csv(folder + filename, dtype={"Zipcode": str})
+df = pd.read_csv(folder + filename, dtype={"Zipcode": str}, nrows=1000)
 
 df[["Date of Filing", "Date of Expiration"]] = df[["Date of Filing", "Date of Expiration"]].apply(pd.to_datetime, errors="coerce")
 df = df.dropna(subset=["Date of Filing", "Date of Expiration"])
