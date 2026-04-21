@@ -1,6 +1,6 @@
 import pandas as pd
 
-folder = "/Users/tulahionas/Spring_2026_DS_2500/Final_Project/"
+folder = "data/"
 filename = "CityofBoston-CityClerkDBA.csv"
 
 df = pd.read_csv(folder + filename, encoding="latin-1")
