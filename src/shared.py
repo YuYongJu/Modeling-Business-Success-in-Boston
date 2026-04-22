@@ -1,13 +1,11 @@
 import pandas as pd
-
-ZIPS_BY_NEIGHBORHOOD = {
-
-}
 '''
 Shared constants and functions used across preprocessing, EDA, and
 hypothesis testing.
 '''
 from pathlib import Path
+
+MAPTILER_API_KEY = ''
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_FILE = _REPO_ROOT / 'data' / 'businesstypes.csv'
