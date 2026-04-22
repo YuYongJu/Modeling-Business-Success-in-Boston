@@ -63,16 +63,6 @@ def add_distance_to_stops(businesses_df, stops_df):
 
     return businesses_df
 
-def find_remove_outliers(df):
-    before = len(df)
-    df = df[
-        (df["latitude"] >= 41) & (df["latitude"] <= 43) &
-        (df["longitude"] >= -72) & (df["longitude"] <= -70)
-    ]
-    after = len(df)
-    print(f"Removed {before - after} outliers based on latitude and longitude ({after} remaining)")
-    return df
-
 
 from difflib import SequenceMatcher
 
@@ -175,7 +165,7 @@ def main():
         df = add_distance_to_stops(df, stops_df)
 
     df = shared.normalize_name(df, "Business Name")
-    df = find_remove_outliers(df)
+    df = shared.find_remove_outliers(df)
     df = shared.encode_neighborhoods(df, 'Zipcode')
     df = calc_age(df, filing_col="issued", expiration_col="expires")
     df.drop(df[df['age_years'] < 0].index, inplace=True)

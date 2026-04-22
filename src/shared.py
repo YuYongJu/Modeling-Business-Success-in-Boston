@@ -168,6 +168,16 @@ def fetch_mbtaAPI():
     df.to_csv('data/MBTA_stops.csv', index=False)
     return df
     
+def find_remove_outliers(df):
+    before = len(df)
+    df = df[
+        (df["latitude"] >= 41) & (df["latitude"] <= 43) &
+        (df["longitude"] >= -72) & (df["longitude"] <= -70)
+    ]
+    after = len(df)
+    print(f"Removed {before - after} outliers based on latitude and longitude ({after} remaining)")
+    return df
+
 def add_distance_to_stops():
     pass
 

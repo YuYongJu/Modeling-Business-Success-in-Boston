@@ -71,7 +71,7 @@ def main():
         df = add_distance_to_stops(df, stops_df)
 
     df = shared.normalize_name(df, "Business Name")
-    df = find_remove_outliers(df)
+    df = shared.find_remove_outliers(df)
     df = shared.encode_neighborhoods(df, 'zip')
     df = calc_age(df, filing_col="issued", expiration_col="expires")
     df.drop(df[df['age_years'] < 0].index, inplace=True)
