@@ -3,7 +3,7 @@ import pandas as pd
 import time
 from urllib.parse import quote
 
-MAPTILER_API_KEY = 'aufX5kxfegadK9an5cZU'
+MAPTILER_API_KEY = '0hnVPQyYgsNAoCUxs2lH'
 
 folder = "data/"
 filename = "CityofBoston-CityClerkDBA"
