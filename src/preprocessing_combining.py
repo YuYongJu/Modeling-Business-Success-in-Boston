@@ -41,28 +41,6 @@ def compile_datasets(df1, df2):
 
     return combined
 
-def add_distance_to_stops(businesses_df, stops_df):
-    '''
-    For each business, calculate distance to each train stop and add the shortest distance and the name of the closest stop to the dataframe.
-    Attributes:
-        businesses_df: DataFrame containing business information including 'latitude' and 'longitude' columns
-        stops_df: DataFrame containing train stop information including 'latitude' and 'longitude' columns
-    Returns:
-        Updated businesses_df with new columns 'closest_stop' and 'distance_to_closest_stop'
-    '''
-    for index, business in businesses_df.iterrows():
-        min_distance = float('inf')
-        closest_stop = None
-        for _, stop in stops_df.iterrows():
-            distance = shared.calculate_distance((business['gpsx'], business['gpsy']), (stop['latitude'], stop['longitude']))
-            if distance < min_distance:
-                min_distance = distance
-                closest_stop = stop['name']
-        businesses_df.at[index, 'closest_stop'] = closest_stop
-        businesses_df.at[index, 'distance_to_closest_stop'] = min_distance
-
-    return businesses_df
-
 
 from difflib import SequenceMatcher
 
@@ -162,12 +140,12 @@ def main():
     if 'distance_to_closest_stop' in df.columns:
         pass
     else:
-        df = add_distance_to_stops(df, stops_df)
+        df = shared.add_distance_to_stops(df, stops_df)
 
     df = shared.normalize_name(df, "Business Name")
     df = shared.find_remove_outliers(df)
     df = shared.encode_neighborhoods(df, 'Zipcode')
-    df = calc_age(df, filing_col="issued", expiration_col="expires")
+    df = shared.calc_age(df, filing_col="issued", expiration_col="expires")
     df.drop(df[df['age_years'] < 0].index, inplace=True)
     df["chain_count"] = df.groupby(name_col)[name_col].transform("count")
 

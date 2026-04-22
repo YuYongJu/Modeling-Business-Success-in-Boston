@@ -1,3 +1,6 @@
+import pandas as pd
+import os
+import requests
 '''
 Shared constants and functions used across preprocessing, EDA, and
 hypothesis testing.
@@ -5,7 +8,7 @@ hypothesis testing.
 import pandas as pd
 from pathlib import Path
 
-MAPTILER_API_KEY = ''
+MAPTILER_API_KEY = '0hnVPQyYgsNAoCUxs2lH'
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_FILE = _REPO_ROOT / 'data' / 'businesstypes.csv'
@@ -178,8 +181,30 @@ def find_remove_outliers(df):
     print(f"Removed {before - after} outliers based on latitude and longitude ({after} remaining)")
     return df
 
-def add_distance_to_stops():
-    pass
+def add_distance_to_stops(businesses_df, stops_df):
+    '''
+    For each business, calculate distance to each train stop and add the shortest distance and the name of the closest stop to the dataframe.
+    Attributes:
+        businesses_df: DataFrame containing business information including 'latitude' and 'longitude' columns
+        stops_df: DataFrame containing train stop information including 'latitude' and 'longitude' columns
+    Returns:
+        Updated businesses_df with new columns 'closest_stop' and 'distance_to_closest_stop'
+    '''
+    for index, business in businesses_df.iterrows():
+        min_distance = float('inf')
+        closest_stop = None
+        for _, stop in stops_df.iterrows():
+            distance = calculate_distance(
+                (business['latitude'], business['longitude']),
+                (stop['latitude'], stop['longitude'])
+            )
+            if distance < min_distance:
+                min_distance = distance
+                closest_stop = stop['name']
+        businesses_df.at[index, 'closest_stop'] = closest_stop
+        businesses_df.at[index, 'distance_to_closest_stop'] = min_distance
+
+    return businesses_df
 
 def add_chain_count():
     pass

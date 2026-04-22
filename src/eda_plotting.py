@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
-import preprocessing
+import preprocessing_licenses
 import pandas as pd
 import shared
 
 save_location = 'eda_plots/'
+FILENAME = 'data/food_drink_licenses_cleaned.csv'
 
 def plot_coords(businesses_df, stops_df):
     """
@@ -234,7 +235,7 @@ def plot_active_by_neighborhood(df):
 
 def main():
     plt.rcParams.update({'font.size': 14})
-    df = pd.read_csv('data/compiled_data.csv')
+    df = pd.read_csv(FILENAME)
     stops_df = pd.read_csv('data/MBTA_stops.csv')
     plot_coords(df, stops_df)
     plot_age_vs_transit(df)

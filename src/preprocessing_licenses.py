@@ -1,11 +1,13 @@
 import pandas as pd
 import requests
 import time
+import os
 
 import shared
 
-FOOD_DATA_FILENAME = 'data/food_drink_licenses.csv'
-MAPTILER_API_KEY = shared.MAPTILER_API_KEY
+FOOD_DATA_FILENAME = 'data/food_drink_licenses'
+FILE_EXTENSION = '.csv'
+MAPTILER_API_KEY = '0hnVPQyYgsNAoCUxs2lH'
 BATCH_SIZE = 50
 
 def drop_missing_coords(df, x_col="gpsx", y_col="gpsy"):
@@ -42,42 +44,45 @@ def transform_EPSG_GPS(coords):
 def transform_all_EPSG_GPS(df, x_col="gpsx", y_col="gpsy"):
     """
     Transform gpsx and gpsy columns in the DataFrame from EPSG:2249 to lat/lon in batches of 50 limit.
-    Adds 'latitude' and 'longitude' columns.
-    Removes original misleading gpsx and gpsy columns.
+    Attributes: DataFrame with 'gpsx' and 'gpsy' columns
+    Returns: DataFrame with 'latitude' and 'longitude' columns added, 
+                        and original 'gpsx' and 'gpsy' columns removed.
     """
     coords = list(zip(df[x_col], df[y_col]))
     transformed_coords = []
 
     for i in range(0, len(coords), BATCH_SIZE):
         batch = coords[i:i+BATCH_SIZE]
-        transformed_batch = transform_batch(batch)
-        transformed_coords.extend(transformed_batch)
+        transformed_coords.extend(transform_EPSG_GPS(batch))
 
     print("transformed coords:", len(transformed_coords))
-    df.assign(latitude=[lat for lat, lon in transformed_coords], longitude=[lon for lat, lon in transformed_coords], inplace=True)
+    df["latitude"] = [lat for lat, lon in transformed_coords]  # ← was broken .assign(..., inplace=True)
+    df["longitude"] = [lon for lat, lon in transformed_coords]
+    df = df.drop(columns=[x_col, y_col])
+    return df
 
 def main():
     stops_df = shared.fetch_mbtaAPI()
     try:
         df = pd.read_csv('data/food_drink_licenses_cleaned.csv')
     except FileNotFoundError:
-        df = pd.read_csv(FOOD_DATA_FILENAME)
+        df = pd.read_csv(FOOD_DATA_FILENAME+FILE_EXTENSION)
     
     if "latitude" not in df.columns:
         df = df.dropna(subset=["gpsx", "gpsy"])
         df = transform_all_EPSG_GPS(df)
 
     if 'distance_to_closest_stop' not in df.columns:
-        df = add_distance_to_stops(df, stops_df)
+        df = shared.add_distance_to_stops(df, stops_df)
 
-    df = shared.normalize_name(df, "Business Name")
+    df = shared.normalize_name(df, "dba_name")
     df = shared.find_remove_outliers(df)
     df = shared.encode_neighborhoods(df, 'zip')
-    df = calc_age(df, filing_col="issued", expiration_col="expires")
+    df = shared.calc_age(df, filing_col="issued", expiration_col="expires")
     df.drop(df[df['age_years'] < 0].index, inplace=True)
-    df["chain_count"] = df.groupby(name_col)[name_col].transform("count")
+    df["chain_count"] = df.groupby("business_name_normalized")["business_name_normalized"].transform("count")
 
-    df.to_csv("data/compiled_data.csv", index=False)
+    df.to_csv(FOOD_DATA_FILENAME + '_cleaned.csv', index=False)
 
 if __name__ == '__main__':
     main()
