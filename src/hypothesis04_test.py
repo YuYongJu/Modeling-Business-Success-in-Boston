@@ -44,12 +44,28 @@ CLUSTER_RADIUS_KM = 0.3  # 300 m
 
 
 def load_food_and_drink():
-    '''Filter businesstypes.csv to Food & Drink using shared filter.
+    '''Load businesstypes.csv and return only Food & Drink businesses.
 
-    Also re-maps zipcode -> neighborhood via shared.ZIP_TO_NEIGHBORHOOD so
-    this script's neighborhood column is guaranteed to match the global
-    zip mapping (rather than trusting whatever was baked into
-    businesstypes.csv at preprocessing time).
+    Parameters
+        None. Reads shared.DATA_FILE from disk.
+
+    Returns
+        pd.DataFrame: Food & Drink subset with columns including 'latitude',
+        'longitude', 'is_active', 'neighborhood', and 'business_category',
+        reset-indexed.
+
+    Assumptions
+        - DATA_FILE must contain 'Zipcode', 'business_type_clean',
+          'latitude', 'longitude', and 'is_active' columns.
+        - Neighborhood is re-derived from shared.ZIP_TO_NEIGHBORHOOD (single
+          source of truth) rather than trusting whatever was baked into
+          businesstypes.csv at preprocessing time.
+        - Category filter uses shared.categorize_business_type so
+          "Food & Drink" matches the rest of the codebase (restaurants,
+          cafes, coffee shops, pubs, pizza, bakeries, generic 'food').
+        - Drops rows with NaN lat/lon/is_active and restricts to the Boston
+          bounding box (42.20-42.42 lat, -71.25 to -70.90 lon) to discard
+          a geocoding-failure row mapped to Italy.
     '''
     df = pd.read_csv(DATA_FILE)
 
@@ -70,7 +86,26 @@ def load_food_and_drink():
 
 
 def count_nearby(df, radius_km=CLUSTER_RADIUS_KM):
-    '''For each business, count other food & drink businesses within radius_km.'''
+    '''Count how many other F&D businesses lie within `radius_km` of each row.
+
+    Parameters
+        df (pd.DataFrame): Must contain 'latitude' and 'longitude' columns
+            in decimal degrees (EPSG:4326).
+        radius_km (float): Search radius in kilometers. Defaults to 0.3
+            (300 m), the cluster threshold used for H4 binning.
+
+    Returns
+        np.ndarray[int]: One integer per row — the count of OTHER F&D
+        businesses within the radius (the row itself is excluded).
+
+    Assumptions
+        - Uses a scaled-Euclidean metric with cos(42°) longitude correction;
+          accurate to <0.1% at 300 m around Boston, degrades farther out.
+        - `df` should already be filtered to Food & Drink — the "other F&D"
+          count is only meaningful against the same categorical population.
+        - Rows with NaN lat/lon must be dropped beforehand, otherwise NaN
+          distances compare False and the count silently under-reports.
+    '''
     lat = df['latitude'].values
     lon = df['longitude'].values
     counts = np.zeros(len(df), dtype=int)
@@ -82,6 +117,35 @@ def count_nearby(df, radius_km=CLUSTER_RADIUS_KM):
 
 
 def test_h4(df):
+    '''Run the H4 cluster-density survival test on a Food & Drink dataframe.
+
+    For every business, counts neighbors within CLUSTER_RADIUS_KM, bins the
+    result into Isolated / Low / High density tiers, and prints a survival
+    table. Tests the hypothesis with a point-biserial correlation between
+    is_active (binary) and nearby-count (continuous).
+
+    Parameters
+        df (pd.DataFrame): Food & Drink subset (output of
+            `load_food_and_drink()`). Must contain 'latitude', 'longitude',
+            and boolean 'is_active' columns.
+
+    Returns
+        None. Side effects:
+            - Prints a survival-by-cluster table, r, p, and verdict string.
+            - Writes outputs/h4_cluster_survival.png (bar chart) and
+              outputs/h4_cluster_map.png (geographic scatter, blue=active,
+              coral=closed, size ∝ nearby density).
+
+    Assumptions
+        - Mutates `df` in place by adding 'nearby' (int) and 'cluster_bin'
+          (categorical: 'Isolated (0)' / 'Low (1-4)' / 'High (5+)') columns.
+        - Uses 3 bins, not 5 — with only ~39 closures in the dataset,
+          finer bins give cells of 2-3 closed restaurants and unstable
+          survival-rate estimates.
+        - Verdict thresholds: r > 0 AND p < 0.05 => "SUPPORTS";
+          r > 0 AND p >= 0.05 => "Directionally supports but not significant";
+          r <= 0 => "Does NOT support".
+    '''
     n_active = int(df['is_active'].sum())
     n_closed = int((~df['is_active']).sum())
     print(f'Food & Drink businesses: {len(df)}  '
@@ -151,6 +215,15 @@ def test_h4(df):
 
 
 def main():
+    '''Entry point: load Food & Drink subset and run the H4 cluster test.
+
+    Parameters
+        None.
+
+    Returns
+        None. Side effects: prints the H4 survival table + correlation
+        results to stdout and writes two figures to outputs/.
+    '''
     print('=' * 60)
     print('H4: Food & Drink businesses in dense clusters are more successful')
     print('=' * 60)

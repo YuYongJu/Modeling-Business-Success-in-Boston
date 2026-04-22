@@ -44,10 +44,24 @@ RANDOM_STATE = 42
 # Data loading + feature engineering
 
 def count_nearby_all(df, radius_km=NEAR_RADIUS_KM):
-    '''For each business, count OTHER businesses within radius_km.
+    '''Count how many other businesses lie within `radius_km` of each row.
 
-    Uses scaled-Euclidean (cos(lat) correction) — accurate to <0.1%
-    at 300m around Boston, same metric as hypothesis_tests.py.
+    Parameters
+        df (pd.DataFrame): Must contain 'latitude' and 'longitude' columns
+            in decimal degrees (EPSG:4326).
+        radius_km (float): Search radius in kilometers. Defaults to 0.3
+            (300 m), matching hypothesis04_test.py.
+
+    Returns
+        np.ndarray[int]: One integer per row — the count of OTHER businesses
+        within the radius (the row itself is excluded via the `- 1`).
+
+    Assumptions
+        - Uses a scaled-Euclidean metric with cos(42°) longitude correction;
+          accurate to <0.1% at a 300 m radius around Boston, degrades for
+          larger radii or points far from BOSTON_LAT.
+        - Rows with NaN lat/lon must be dropped before calling — NaN
+          distances will compare False and silently under-count.
     '''
     lat = df['latitude'].values
     lon = df['longitude'].values
@@ -60,15 +74,26 @@ def count_nearby_all(df, radius_km=NEAR_RADIUS_KM):
 
 
 def load_and_prepare():
-    '''Load businesstypes.csv and engineer the four feature columns.
+    '''Load businesstypes.csv and engineer the four modeling features + target.
 
-    Features:
-      - nearby_count      location density (how many businesses within 300m)
-      - age_years         already in the file
-      - neighborhood      re-derived from shared.ZIP_TO_NEIGHBORHOOD
-      - business_category Abby's 9-category filter from shared.py
-    Target:
-      - is_active         boolean (True = still active)
+    Parameters
+        None. Reads shared.DATA_FILE from disk.
+
+    Returns
+        pd.DataFrame: Cleaned dataframe with the following added columns —
+            - nearby_count (int): businesses within 300 m (location density)
+            - age_years (float): years since Date of Filing
+            - neighborhood (str): re-derived from shared.ZIP_TO_NEIGHBORHOOD
+            - business_category (str): Abby's 9-category filter from shared.py
+        The target column `is_active` (bool) is also guaranteed non-null.
+
+    Assumptions
+        - DATA_FILE points to a CSV with columns: Zipcode, Date of Filing,
+          business_type_clean, latitude, longitude, is_active.
+        - Drops any row with NaN in the feature or target columns.
+        - Restricts to Boston-metro bounding box (lat 42.20–42.42,
+          lon -71.25 to -70.90) to discard ~11 rows with garbage geocoding
+          from a MapTiler fallback (e.g. points in Singapore, Wyoming).
     '''
     df = pd.read_csv(DATA_FILE)
     df['Zipcode'] = pd.to_numeric(df['Zipcode'], errors='coerce')
@@ -95,7 +120,28 @@ def load_and_prepare():
 # KNN classification
 
 def run_classification(df):
-    '''Predict is_active using KNN; report accuracy/precision/recall + CM.'''
+    '''Train a KNN classifier to predict business survival and report metrics.
+
+    Parameters
+        df (pd.DataFrame): Output of `load_and_prepare()`. Must contain
+            columns: nearby_count, age_years, neighborhood, business_category,
+            is_active.
+
+    Returns
+        None. Prints accuracy / precision / recall / confusion matrix to
+        stdout and writes the confusion-matrix heatmap to
+        outputs/modeling_confusion_matrix.png.
+
+    Assumptions
+        - Mutates `df` in place by adding label-encoded columns `nhd_enc`
+          and `cat_enc`.
+        - Uses an 80/20 stratified split (random_state=42) so active/closed
+          ratio is preserved in both halves.
+        - Features are standardized (StandardScaler) so KNN distances aren't
+          dominated by age_years (range ~0-30) over nhd_enc (range ~0-3).
+        - k = K_NEIGHBORS (5). Precision/recall use is_active=1 as the
+          positive class.
+    '''
     print('\n' + '=' * 60)
     print('PART 1 — CLASSIFICATION: KNN predicts business survival')
     print('=' * 60)
@@ -160,7 +206,25 @@ def run_classification(df):
 # K-Means clustering on GPS
 
 def run_clustering(df):
-    '''K-Means on (lat, lon); report survival rate per cluster + map.'''
+    '''Run K-Means on GPS coordinates and report per-cluster survival rates.
+
+    Parameters
+        df (pd.DataFrame): Output of `load_and_prepare()`. Must contain
+            'latitude', 'longitude', and 'is_active' columns.
+
+    Returns
+        None. Prints a per-cluster survival table (n, active, survival_pct)
+        to stdout and writes a colored cluster map to
+        outputs/modeling_kmeans_map.png.
+
+    Assumptions
+        - Mutates `df` in place by adding a `cluster` column (0 … K-1).
+        - Clusters on raw (lat, lon) WITHOUT cos(lat) correction — this is
+          fine for Boston's small latitude range but would bias clusters
+          for wider geographies.
+        - k = K_CLUSTERS (4), chosen to roughly match observed
+          neighborhoods; n_init=10, random_state=42 for reproducibility.
+    '''
     print('\n' + '=' * 60)
     print('PART 2 — K-MEANS CLUSTERING on GPS')
     print('=' * 60)
@@ -203,6 +267,15 @@ def run_clustering(df):
 # Main
 
 def main():
+    '''Entry point: load data, run KNN classification, run K-Means clustering.
+
+    Parameters
+        None.
+
+    Returns
+        None. Side effects: prints progress + metrics to stdout and writes
+        two figures into outputs/.
+    '''
     print('=' * 60)
     print('BUSINESS SUCCESS MODELING')
     print('=' * 60)

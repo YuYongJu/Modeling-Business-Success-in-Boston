@@ -1,12 +1,8 @@
-import pandas as pd
-
-ZIPS_BY_NEIGHBORHOOD = {
-
-}
 '''
 Shared constants and functions used across preprocessing, EDA, and
 hypothesis testing.
 '''
+import pandas as pd
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
