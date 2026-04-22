@@ -198,10 +198,10 @@ def handle_withdrawals(df, gap_threshold=30):
     df['Date of Filing'] = pd.to_datetime(df['Date of Filing'], errors='coerce', format="mixed")
     df['Date of Expiration'] = pd.to_datetime(df['Date of Expiration'], errors='coerce', format="mixed")
 
-    is_withdrawal = df['Type of Business'].str.upper().str.startswith('WITHDRAWAL')
+    is_withdrawal = df['Type of Business'].str.upper().str.startswith('WITHDRAWAL', na=False)
     date_withdrawals = df[
         is_withdrawal &
-        df['Type of Business'].str.contains(r'\(\d+/\d+/\d+\)', regex=True)
+        df['Type of Business'].str.contains(r'\(\d+/\d+/\d+\)', regex=True, na=False)
     ].copy()
 
     continuous = 0
@@ -211,7 +211,7 @@ def handle_withdrawals(df, gap_threshold=30):
         match = (
             (df['Business Name'] == w['Business Name']) &
             (df['Business Address'] == w['Business Address']) &
-            (~df['Type of Business'].str.upper().str.startswith('WITHDRAWAL'))
+            (~df['Type of Business'].str.upper().str.startswith('WITHDRAWAL', na=False))
         )
         if not match.any():
             continue

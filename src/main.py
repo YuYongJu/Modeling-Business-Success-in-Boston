@@ -14,8 +14,7 @@ def main():
     preprocessing_DBA_latandlong.main()
     build_businesstypes.build()
     eda_plotting.main()
-    # Lazy import: hypothesis_diversity reads data at module level, so it
-    # must be imported AFTER the cleaned CSV has been written above.
+    # Lazy import: hypothesis_diversity reads data at module level, so it must be imported AFTER the cleaned CSV has been written above.
     import hypothesis_diversity
     hypothesis_diversity.main()
     hypothesis04_test.main()

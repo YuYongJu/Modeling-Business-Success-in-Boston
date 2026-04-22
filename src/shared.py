@@ -5,6 +5,7 @@ import requests
 Shared constants and functions used across preprocessing, EDA, and
 hypothesis testing.
 '''
+import os
 import pandas as pd
 from pathlib import Path
 
