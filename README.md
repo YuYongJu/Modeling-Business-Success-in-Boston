@@ -9,7 +9,8 @@
 | Week 3 | March 23 | Initial EDA |
 | Week 4 | March 30 | EDA + visualization, modeling<br>**Milestone 3 due Tues, March 31** |
 | Week 5 | April 6 | Presentation prep |
-| Week 6 | April 13 | Final edits, presentation practice<br>**Milestone 4 due Mon, April 13**<br>**Presentation on Tues, April 14 OR Fri, April 17 (TBD)** |
+| Week 6 | April 13 | Final edits, presentation practice<br>**Milestone 4 due Mon, April 13**<br>**Presentation on Fri, April 17 (TBD)** |
+| Week 7 | April 20 | Final deliverables due (4-8 page write-up)
 
 ## Project Overview
 This project analyzes what factors affect storefront business sucess and longevity in Boston, MA. We examined neighborhood location, business type, proximity to MBTA stops, and clustering of businesses using 2 City of Boston sponsored datasets. 
