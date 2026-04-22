@@ -134,30 +134,6 @@ def maptiler_geocode(address, zipcode):
 
     return None, None
 
-def geocode_addresses(addresses):
-    """
-    Attributes:
-        addresses: list of address strings
-    Returns:
-        list of (lat, lon) tuples
-    """
-    results = []
-    for address in addresses:
-        url = f"https://api.maptiler.com/geocoding/{requests.utils.quote(address)}.json"
-        params = {
-            "key": MAPTILER_API_KEY,
-            "limit": 1,
-        }
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        features = response.json().get("features", [])
-        if features:
-            lon, lat = features[0]["geometry"]["coordinates"]
-            results.append((lat, lon))
-        else:
-            results.append((None, None))
-    return results
-
 def geocode_all_addresses(df, address_col="Business Address"):
     """
     Geocode all addresses in a DataFrame column in batches of BATCH_SIZE.

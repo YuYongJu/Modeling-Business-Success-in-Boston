@@ -6,6 +6,7 @@ import preprocessing_combining
 import shared
 import build_businesstypes
 import eda_plotting
+import eda_alcohol_licenses
 import hypothesis04_test
 import modeling
 
@@ -14,7 +15,7 @@ def main():
     preprocessing_DBA_latandlong.main()
     build_businesstypes.build()
     eda_plotting.main()
-    # Lazy import: hypothesis_diversity reads data at module level, so it must be imported AFTER the cleaned CSV has been written above.
+    eda_alcohol_licenses.main()
     import hypothesis_diversity
     hypothesis_diversity.main()
     hypothesis04_test.main()
