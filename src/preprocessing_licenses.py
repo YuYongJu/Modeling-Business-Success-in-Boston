@@ -55,3 +55,29 @@ def transform_all_EPSG_GPS(df, x_col="gpsx", y_col="gpsy"):
 
     print("transformed coords:", len(transformed_coords))
     df.assign(latitude=[lat for lat, lon in transformed_coords], longitude=[lon for lat, lon in transformed_coords], inplace=True)
+
+def main():
+    stops_df = shared.fetch_mbtaAPI()
+    try:
+        df = pd.read_csv('data/food_drink_licenses_cleaned.csv')
+    except FileNotFoundError:
+        df = pd.read_csv(FOOD_DATA_FILENAME)
+    
+    if "latitude" not in df.columns:
+        df = df.dropna(subset=["gpsx", "gpsy"])
+        df = transform_all_EPSG_GPS(df)
+
+    if 'distance_to_closest_stop' not in df.columns:
+        df = add_distance_to_stops(df, stops_df)
+
+    df = shared.normalize_name(df, "Business Name")
+    df = find_remove_outliers(df)
+    df = shared.encode_neighborhoods(df, 'zip')
+    df = calc_age(df, filing_col="issued", expiration_col="expires")
+    df.drop(df[df['age_years'] < 0].index, inplace=True)
+    df["chain_count"] = df.groupby(name_col)[name_col].transform("count")
+
+    df.to_csv("data/compiled_data.csv", index=False)
+
+if __name__ == '__main__':
+    main()
