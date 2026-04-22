@@ -5,8 +5,11 @@ import os
 
 import shared
 
-FOOD_DATA_FILENAME = 'data/food_drink_licenses'
-FILE_EXTENSION = '.csv'
+FOLDER = "data/"
+FILENAME = "food_drink_licenses"
+
+ORIGINAL_PATH = f"{FOLDER}{FILENAME}.csv"
+CLEANED_PATH = f"{FOLDER}{FILENAME}_cleaned.csv"
 MAPTILER_API_KEY = '0hnVPQyYgsNAoCUxs2lH'
 BATCH_SIZE = 50
 
@@ -64,9 +67,9 @@ def transform_all_EPSG_GPS(df, x_col="gpsx", y_col="gpsy"):
 def main():
     stops_df = shared.fetch_mbtaAPI()
     try:
-        df = pd.read_csv('data/food_drink_licenses_cleaned.csv')
+        df = pd.read_csv(CLEANED_PATH)
     except FileNotFoundError:
-        df = pd.read_csv(FOOD_DATA_FILENAME+FILE_EXTENSION)
+        df = pd.read_csv(ORIGINAL_PATH)
     
     if "latitude" not in df.columns:
         df = df.dropna(subset=["gpsx", "gpsy"])
@@ -82,7 +85,7 @@ def main():
     df.drop(df[df['age_years'] < 0].index, inplace=True)
     df["chain_count"] = df.groupby("business_name_normalized")["business_name_normalized"].transform("count")
 
-    df.to_csv(FOOD_DATA_FILENAME + '_cleaned.csv', index=False)
+    df.to_csv(CLEANED_PATH, index=False)
 
 if __name__ == '__main__':
     main()
