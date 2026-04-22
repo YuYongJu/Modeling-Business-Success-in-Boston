@@ -20,7 +20,10 @@ This project analyzes what factors affect storefront business sucess and longevi
 - MBTA API:
 
 ## Structure
-- 
+- eda_plots (all .png images)
+- src (.py files)
+- data (csv files)
+- outputs
 
 ## Requirements
 pandas, matplotlib, numpy, scipy, scikit-learn, pyproj
