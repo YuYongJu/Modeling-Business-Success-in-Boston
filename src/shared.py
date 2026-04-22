@@ -5,6 +5,8 @@ hypothesis testing.
 import pandas as pd
 from pathlib import Path
 
+MAPTILER_API_KEY = ''
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 DATA_FILE = _REPO_ROOT / 'data' / 'businesstypes.csv'
 
@@ -92,7 +94,6 @@ def encode_neighborhoods(df, zip_col):
     df['neighborhood'] = df[zip_col].map(zip_to_neighborhood)
     return df
 
-
 def calculate_distance(gps1, gps2):
     '''
     Calculate Manhattan distance (city blocks) between two gps coordinates.
@@ -109,16 +110,76 @@ def calculate_distance(gps1, gps2):
 
     return distance
 
-def calculate_age(df, filing_col, expiration_col):
-    df[filing_col] = pd.to_datetime(df[filing_col], errors='coerce')
-    df[expiration_col] = pd.to_datetime(df[expiration_col], errors='coerce')
+def calc_age(df, filing_col, expiration_col):
+    '''
+    Calculate age and active status for each business.
+    Attributes: dataframe
+    Returns: dataframe with two new columns:
+        is_active: True if expiration date is in the future.
+        age_years: for active businesses, today - date of filing.
+                for closed businesses, date of expiration - date of filing.
+    '''
+    today = pd.Timestamp.today()
+    df[filing_col] = pd.to_datetime(df[filing_col], errors="coerce", format="mixed")
+    df[expiration_col] = pd.to_datetime(df[expiration_col], errors="coerce", format="mixed")
     df = df.dropna(subset=[filing_col, expiration_col])
-    df["age"] = (df[expiration_col] - df[filing_col]).dt.days
+
+    df["is_active"] = df[expiration_col] > today
+    end_date = df[expiration_col].where(~df["is_active"], other=today)
+    df["age_years"] = (end_date - df[filing_col]).dt.days / 365
+    
+    return df
+
+def create_API_variables():
+    '''
+    Makes the api key string.
+    filtering for Subway (1) and Light Rail (0)
+    '''
+    baseUrl = 'https://api-v3.mbta.com/'
+    endpoint = 'stops'
+    filters = '?filter[route_type]=0,1'
+    API = f'{baseUrl}{endpoint}{filters}'
+    return API
+
+def call_API_load(API):
+    '''
+    Create a DF from API string.
+    Attributes: API string
+    Returns: DataFrame with columns 'name', 'latitude', 'longitude' for each stop
+    '''
+    response = requests.get(API).json()
+    stops_data = [stop['attributes'] for stop in response['data']]
+    df = pd.DataFrame(stops_data)
+    print(df.columns.tolist())
+
+    gps_coords = df[['name', 'latitude', 'longitude']]
+    return gps_coords
+
+def fetch_mbtaAPI():
+    '''
+    Fetch MBTA stop data from API, or load from local file if it exists.
+    Attributes: None
+    Returns: DataFrame with columns 'name', 'latitude', 'longitude' for each stop
+    '''
+    if os.path.exists('data/MBTA_stops.csv'):
+        return pd.read_csv('data/MBTA_stops.csv')
+    API = create_API_variables()
+    df = call_API_load(API)
+    df.to_csv('data/MBTA_stops.csv', index=False)
+    return df
+    
+def find_remove_outliers(df):
+    before = len(df)
+    df = df[
+        (df["latitude"] >= 41) & (df["latitude"] <= 43) &
+        (df["longitude"] >= -72) & (df["longitude"] <= -70)
+    ]
+    after = len(df)
+    print(f"Removed {before - after} outliers based on latitude and longitude ({after} remaining)")
     return df
 
 def add_distance_to_stops():
     pass
-
 
 def add_chain_count():
     pass

@@ -26,6 +26,9 @@ df = df[df["Duration"] > 0]
 
 # Diversity score functions 
 def distance_in_miles(lat1, lon1, lat2, lon2):
+    """
+    Calculates the distance in miles between two GPS coordinates.
+    """
     R = 3958.8
     lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
     dlat, dlon = lat2 - lat1, lon2 - lon1
@@ -33,11 +36,19 @@ def distance_in_miles(lat1, lon1, lat2, lon2):
     return R * 2 * atan2(sqrt(a), sqrt(1 - a))
 
 def neighborhood_diversity_score(types):
+    """
+    Computes a diversity score for a collection of business types. Higher values
+    indicate greater variety of business types in the area.
+    """
     counts = types.value_counts()
     proportions = counts / counts.sum()
     return -sum(proportions * np.log(proportions))
 
 def get_diversity_score(idx, radius_miles=RADIUS):
+    """
+    Computes the business-type diversity score for a single business based on 
+    its neighboring businesses within a given radius.
+    """
     row    = df.loc[idx]
     nearby = df[df.index != idx].copy()
     nearby["dist"] = nearby.apply(
@@ -50,6 +61,9 @@ def get_diversity_score(idx, radius_miles=RADIUS):
 
 # Build heatmap matrix 
 def build_heatmap(df):
+    """
+    Builds a heatmap across diversity levels and time intervals.
+    """
     heatmap_data = np.zeros((len(LABELS), len(DAY_INTERVALS)))
     for i, level in enumerate(LABELS):
         subset = df[df["Diversity Level"] == level]
@@ -66,6 +80,9 @@ def build_heatmap(df):
 
 # Plot heatmap
 def plot_heatmap(heatmap_data):
+    """
+    Plots and saves a heatmap of survival probabilities by diversity level and days since opening.
+    """
     fig, ax = plt.subplots(figsize=(8, 5))
     im = ax.imshow(heatmap_data, cmap="Greens", vmin=0, vmax=1, aspect="auto")
 
