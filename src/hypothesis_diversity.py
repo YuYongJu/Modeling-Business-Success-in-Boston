@@ -52,8 +52,8 @@ def get_diversity_score(idx, radius_miles=RADIUS):
     row    = df.loc[idx]
     nearby = df[df.index != idx].copy()
     nearby["dist"] = nearby.apply(
-        lambda r: distance_in_miles(row["Latitude"], row["Longitude"],
-                            r["Latitude"],  r["Longitude"]), axis=1)
+        lambda r: distance_in_miles(row["latitude"], row["longitude"],
+                            r["latitude"],  r["longitude"]), axis=1)
     nearby = nearby[nearby["dist"] <= radius_miles]
     if len(nearby) < 2:
         return 0.0
